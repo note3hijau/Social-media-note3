@@ -1,0 +1,332 @@
+import { Bell, MessageSquare, Search, Sun, Moon, Users, ShoppingBag, Plus, Sparkles, Check } from 'lucide-react';
+import { User, AppNotification, FriendRequest } from '../types';
+import { useState } from 'react';
+
+interface HeaderProps {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+  currentUser: User;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  notifications: AppNotification[];
+  markAllNotificationsRead: () => void;
+  friendRequests: FriendRequest[];
+  acceptRequest: (id: string, name: string) => void;
+  declineRequest: (id: string) => void;
+  unreadCount: number;
+  unreadMessagesCount: number;
+  onNotificationClick: (notif: AppNotification) => void;
+}
+
+export default function Header({
+  theme,
+  toggleTheme,
+  currentUser,
+  activeTab,
+  setActiveTab,
+  notifications,
+  markAllNotificationsRead,
+  friendRequests,
+  acceptRequest,
+  declineRequest,
+  unreadCount,
+  unreadMessagesCount,
+  onNotificationClick,
+}: HeaderProps) {
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const pendingRequests = friendRequests.filter(r => r.status === 'pending');
+
+  return (
+    <header className="sticky top-0 z-40 w-full transition-colors duration-200 border-b border-gray-200 dark:border-slate-800 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur shadow-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        
+        {/* Logo and Search bar */}
+        <div className="flex items-center gap-4 flex-1 sm:flex-initial">
+          <button 
+            onClick={() => setActiveTab('feed')}
+            className="flex items-center gap-2 cursor-pointer focus:outline-hidden"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xl shadow-md cursor-pointer">
+              iB
+            </div>
+            <div className="hidden sm:block text-left">
+              <span className="font-extrabold text-xl tracking-tighter text-blue-600 dark:text-blue-500">
+                idebagus
+              </span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block -mt-1 tracking-wider">
+                .com
+              </span>
+            </div>
+          </button>
+
+          {/* Search bar desktop */}
+          <div className="relative hidden md:block w-70 ml-4">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search className="h-4 w-4 text-slate-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Cari ide, barang, & teman..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-900 py-1.5 pl-10 pr-4 text-sm text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-950 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Tab navigation for Desktop */}
+        <nav className="hidden lg:flex items-center gap-1">
+          <button
+            onClick={() => setActiveTab('feed')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              activeTab === 'feed'
+                ? 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                : 'text-gray-650 dark:text-slate-300 hover:bg-gray-150/50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            Feed Sosial
+          </button>
+
+          <button
+            onClick={() => setActiveTab('marketplace')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              activeTab === 'marketplace'
+                ? 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                : 'text-gray-650 dark:text-slate-300 hover:bg-gray-150/50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Marketplace Lokal
+          </button>
+
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              activeTab === 'chat'
+                ? 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                : 'text-gray-650 dark:text-slate-300 hover:bg-gray-150/50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Obrolan Chat
+            {unreadMessagesCount > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {unreadMessagesCount}
+              </span>
+            )}
+          </button>
+        </nav>
+
+        {/* Action icons / badgeless quick menu */}
+        <div className="flex items-center gap-3">
+          
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Nyalakan Mode Gelap' : 'Nyalakan Mode Terang'}
+            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300 transition-colors"
+          >
+            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </button>
+
+          {/* Friend Requests Badge Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowRequestsDropdown(!showRequestsDropdown);
+                setShowNotificationsDropdown(false);
+              }}
+              className={`p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer relative ${
+                showRequestsDropdown ? 'bg-gray-100 dark:bg-slate-800' : ''
+              }`}
+            >
+              <Users className="h-5 w-5 text-gray-650 dark:text-slate-300" />
+              {pendingRequests.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                  {pendingRequests.length}
+                </span>
+              )}
+            </button>
+
+            {/* Friend requests list dropdown */}
+            {showRequestsDropdown && (
+              <div className="absolute right-[-4.5rem] sm:right-0 mt-2 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 dark:border-neutral-850 bg-white dark:bg-neutral-900 p-2 shadow-xl ring-1 ring-black/5 z-50">
+                <div className="px-3 py-2 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center mb-1">
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-white">
+                    Permintaan Pertemanan
+                  </h3>
+                  <span className="text-xs text-neutral-500">Indonesia</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-2 py-1 scrollbar-thin">
+                  {pendingRequests.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                      Tidak ada permintaan baru saat ini
+                    </div>
+                  ) : (
+                    pendingRequests.map((req) => (
+                      <div key={req.id} className="p-2 rounded-lg bg-gray-50/50 dark:bg-neutral-800/40 flex items-start gap-3">
+                        <img 
+                          src={req.senderAvatar} 
+                          alt={req.senderName} 
+                          className="h-10 w-10 rounded-full object-cover border border-blue-500/10"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-xs text-gray-900 dark:text-white truncate">
+                            {req.senderName}
+                          </p>
+                          <p className="text-[10px] text-neutral-500">Mengajak berteman • {req.createdAt}</p>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => {
+                                acceptRequest(req.id, req.senderName);
+                                setShowRequestsDropdown(false);
+                              }}
+                              className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-semibold transition-colors cursor-pointer"
+                            >
+                              Terima
+                            </button>
+                            <button
+                              onClick={() => {
+                                declineRequest(req.id);
+                              }}
+                              className="px-2.5 py-1 rounded-md bg-gray-200 dark:bg-neutral-700 hover:bg-gray-350 dark:hover:bg-neutral-600 text-gray-700 dark:text-neutral-300 text-[10px] font-semibold transition-colors cursor-pointer"
+                            >
+                              Tolak
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Messages Alert (For short screens/desktops clicks quickly to Chat) */}
+          <button
+            onClick={() => setActiveTab('chat')}
+            className="p-2 lg:hidden rounded-xl hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-neutral-400 transition-colors relative"
+          >
+            <MessageSquare className="h-5 w-5" />
+            {unreadMessagesCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-neutral-900">
+                {unreadMessagesCount}
+              </span>
+            )}
+          </button>
+
+          {/* Global Notification Badge Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowNotificationsDropdown(!showNotificationsDropdown);
+                setShowRequestsDropdown(false);
+                if (!showNotificationsDropdown) {
+                  markAllNotificationsRead();
+                }
+              }}
+              className={`p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer relative ${
+                showNotificationsDropdown ? 'bg-gray-100 dark:bg-neutral-800' : ''
+              }`}
+            >
+              <Bell className="h-5 w-5 text-gray-600 dark:text-neutral-400" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-neutral-900 animate-bounce">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notifications List */}
+            {showNotificationsDropdown && (
+              <div className="absolute right-[-4.5rem] sm:right-0 mt-2 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2 shadow-xl ring-1 ring-black/5 z-50">
+                <div className="px-3 py-2 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center mb-1">
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-white">
+                    Notifikasi Terbaru
+                  </h3>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={markAllNotificationsRead}
+                      className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Tandai dibaca
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto space-y-1 py-1 scrollbar-thin">
+                  {notifications.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                      Belum ada notifikasi baru untuk Anda
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => {
+                          onNotificationClick(notif);
+                          setShowNotificationsDropdown(false);
+                        }}
+                        className={`p-2.5 rounded-xl transition-all flex gap-3 items-start text-left cursor-pointer ${
+                          notif.isRead 
+                            ? 'hover:bg-gray-50 dark:hover:bg-neutral-800/20' 
+                            : 'bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/60 dark:hover:bg-blue-950/30'
+                        }`}
+                      >
+                        {notif.senderAvatar ? (
+                          <img
+                            src={notif.senderAvatar}
+                            alt="Sender"
+                            className="h-8 w-8 rounded-full object-cover border border-gray-100 dark:border-neutral-800"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
+                            iB
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-[11px] text-gray-900 dark:text-neutral-200">
+                            {notif.title}
+                          </p>
+                          <p className="text-[11px] text-gray-600 dark:text-neutral-400 line-clamp-2 leading-relaxed">
+                            {notif.content}
+                          </p>
+                          <span className="text-[9px] text-neutral-450 mt-1 block">
+                            {notif.createdAt}
+                          </span>
+                        </div>
+                        {!notif.isRead && (
+                          <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0 mt-2" />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Current User Quick Avatar click -> profile tab */}
+          <button
+            onClick={() => setActiveTab('profile')}
+            className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors focus:outline-hidden cursor-pointer border border-transparent hover:border-blue-500/10"
+          >
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.displayName}
+              className="h-8 w-8 rounded-full object-cover ring-2 ring-blue-500"
+            />
+            <span className="hidden md:inline text-xs font-semibold text-gray-700 dark:text-gray-300">
+              {currentUser.displayName.split(' ')[0]}
+            </span>
+          </button>
+
+        </div>
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,6 @@
+{
+  "name": "idebagus.com",
+  "description": "An Indonesian-focused social media platform with a local marketplace, secure payments, custom profiles, real-time-like notifications, and integrated chat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

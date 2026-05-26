@@ -1,0 +1,247 @@
+import { LogOut, Settings, Award, Layers, ShieldCheck, HelpCircle, HardDrive, Smartphone, Sparkles, MessageSquare, ShoppingBag, X, Moon, Sun, MonitorDot } from 'lucide-react';
+import { User } from '../types';
+import { useState } from 'react';
+
+interface SidebarProps {
+  currentUser: User;
+  isOpen: boolean;
+  onClose: () => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+  onLogout: () => void;
+}
+
+export default function Sidebar({
+  currentUser,
+  isOpen,
+  onClose,
+  activeTab,
+  setActiveTab,
+  theme,
+  toggleTheme,
+  onLogout,
+}: SidebarProps) {
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Quick info about the simulated scaling database architecture
+  const serverStat = {
+    provider: 'Cloud SQL / PostgreSQL (Highly Scalable)',
+    latency: '8ms',
+    replicas: '3 Active Node Shards',
+    status: 'OPTIMAL'
+  };
+
+  const navItems = [
+    { id: 'feed', name: 'Feed Utama', icon: Sparkles },
+    { id: 'marketplace', name: 'Pasar Lokal', icon: ShoppingBag },
+    { id: 'chat', name: 'Obrolan Chat', icon: MessageSquare },
+  ];
+
+  return (
+    <>
+      {/* Backdrop for mobile drawer */}
+      {isOpen && (
+        <div 
+          onClick={onClose}
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity"
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <aside
+        className={`fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] bg-white dark:bg-[#1e293b] border-r border-gray-150 dark:border-slate-800/80 z-50 transform lg:transform-none transition-transform duration-300 ease-out flex flex-col ${
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        } lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:rounded-2xl lg:-mt-2 lg:mb-4`}
+      >
+        {/* Mobile Header in side menu */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-slate-800 lg:hidden">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">iB</div>
+            <span className="font-extrabold text-gray-900 dark:text-slate-150">Menu Utama</span>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer text-gray-500"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* User Card */}
+        <div className="p-4 border-b border-gray-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <img 
+              src={currentUser.avatar} 
+              alt={currentUser.displayName} 
+              className="h-12 w-12 rounded-full object-cover ring-2 ring-blue-500"
+            />
+            <div className="flex-1 min-w-0">
+              <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                {currentUser.displayName}
+              </h4>
+              <p className="text-[10px] text-gray-500 truncate">@{currentUser.username}</p>
+              <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-extrabold text-white bg-blue-600 px-1.5 py-0.5 rounded-full shadow-xs">
+                <ShieldCheck className="h-3 w-3" />
+                Verified Seller
+              </span>
+            </div>
+          </div>
+          
+          <div className="mt-3 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-2.5 rounded-xl text-[10px] text-gray-500">
+            <span>Region: 🇲🇨 Indonesia</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">{currentUser.location.split(',')[0]}</span>
+          </div>
+        </div>
+
+        {/* Desktop Navigation Links */}
+        <div className="p-4 space-y-1 block lg:hidden border-b border-gray-100 dark:border-slate-800">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 px-2 mb-2">
+            Navigasi Cepat
+          </p>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  onClose();
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left ${
+                  activeTab === item.id
+                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.name}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Standard side categories */}
+        <div className="p-4 space-y-1 flex-1 overflow-y-auto scrollbar-thin">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 px-2 mb-2">
+            Kategori Terpopuler
+          </p>
+          <button 
+            onClick={() => { setActiveTab('marketplace'); onClose(); }} 
+            className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/40 rounded-xl flex items-center justify-between"
+          >
+            <span>📱 Gadget & Elektronik</span>
+            <span className="bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded-full">New</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab('marketplace'); onClose(); }} 
+            className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/40 rounded-xl flex items-center justify-between"
+          >
+            <span>🏍️ Motor & Otomotif</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab('marketplace'); onClose(); }} 
+            className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/40 rounded-xl flex items-center justify-between"
+          >
+            <span>👕 Fashion & Aksesoris</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab('marketplace'); onClose(); }} 
+            className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/40 rounded-xl flex items-center justify-between"
+          >
+            <span>🍔 Makanan & Minuman Kuliner</span>
+          </button>
+
+          {/* Scalable Architecture Diagnostics Widget */}
+          <div className="mt-6 bg-gradient-to-br from-gray-50 to-blue-50/20 dark:from-slate-800/20 dark:to-blue-955/10 border border-gray-150 dark:border-slate-800 p-3 rounded-xl">
+            <div className="flex items-center gap-1.5 mb-2 text-[10px] font-extrabold uppercase text-white bg-blue-600 px-2 py-0.5 rounded-sm w-fit shadow-xs">
+              <HardDrive className="h-3 w-3" />
+              Scalable DB Schema Active
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-slate-400 leading-relaxed mb-2">
+              Sharding & query caching otomatis di seluruh region Indonesia untuk responsivitas instan di perangkat mobile.
+            </p>
+            <div className="space-y-1.5 text-[9px] text-gray-450 dark:text-slate-500 border-t border-gray-150 dark:border-slate-800/80 pt-1.5">
+              <div className="flex justify-between">
+                <span>Database Node:</span>
+                <span className="font-mono text-gray-700 dark:text-slate-300">Google Cloud SQL</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Latency Shard:</span>
+                <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">{serverStat.latency}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Status Sinkronasi:</span>
+                <span className="font-mono text-white bg-green-600 dark:bg-green-700 px-1.5 py-0.5 rounded-md text-[8px] font-extrabold tracking-wider flex items-center gap-1 shadow-xs">
+                  <span className="h-1 w-1 rounded-full bg-white inline-block animate-ping"></span>
+                  TERHUBUNG
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Footer menu - Easily accessible LOGOUT */}
+        <div className="p-4 border-t border-gray-100 dark:border-neutral-800 space-y-2 bg-gray-50/50 dark:bg-neutral-900/40">
+          
+          <button
+            onClick={() => {
+              setActiveTab('profile');
+              onClose();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer text-left"
+          >
+            <Settings className="h-4 w-4" />
+            Pengaturan Akun
+          </button>
+
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer text-left focus:outline-hidden"
+          >
+            <LogOut className="h-4 w-4" />
+            Keluar (Logout)
+          </button>
+        </div>
+
+        {/* Custom Logout Confirmation Dialog Overlay */}
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+            <div className="bg-white dark:bg-[#1e293b] border border-gray-150 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl animate-scale-up">
+              <div className="text-center">
+                <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4 text-red-500">
+                  <LogOut className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">
+                  Konfirmasi Keluar?
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-neutral-400 mb-6">
+                  Apakah Anda yakin ingin keluar dari <span className="font-semibold text-blue-500">idebagus.com</span>? Sesi Anda akan disimpan di sistem lokal secara aman.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="px-4 py-2 border border-gray-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-gray-600 dark:text-neutral-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowLogoutConfirm(false);
+                      onLogout();
+                    }}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-650 text-white rounded-xl text-xs font-extrabold transition-colors cursor-pointer shadow-md"
+                  >
+                    Ya, Keluar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </aside>
+    </>
+  );
+}
