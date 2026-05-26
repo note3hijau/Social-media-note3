@@ -212,12 +212,12 @@ export default function MessageChatBox({
                     className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs space-y-0.5 shadow-xs ${
                       fromMe
                         ? 'bg-emerald-500 text-white rounded-br-none'
-                        : 'bg-white dark:bg-neutral-800 text-gray-900 dark:text-neutral-100 rounded-bl-none border border-gray-150/50 dark:border-neutral-750'
+                        : 'bg-slate-700 dark:bg-neutral-805 text-white rounded-bl-none border-none'
                     }`}
                   >
                     <p className="leading-relaxed">{msg.content}</p>
                     <div className="flex justify-end items-center gap-1">
-                      <span className={`text-[8px] ${fromMe ? 'text-emerald-100' : 'text-gray-400'}`}>
+                      <span className={`text-[8px] ${fromMe ? 'text-emerald-100' : 'text-slate-300 dark:text-gray-400'}`}>
                         {msg.createdAt}
                       </span>
                       {fromMe && <CheckCheck className="h-3 w-3 text-emerald-100" />}

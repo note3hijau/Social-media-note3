@@ -85,3 +85,27 @@ export interface AppNotification {
   isRead: boolean;
   createdAt: string;
 }
+
+export interface TrackingStepLog {
+  time: string;
+  statusText: string;
+  note: string;
+}
+
+export interface EscrowTransaction {
+  id: string;
+  itemId: string;
+  itemTitle: string;
+  itemPrice: number;
+  itemImage: string;
+  buyerId: string;
+  buyerName: string;
+  paymentMethod: 'qris' | 'gopay' | 'ovo' | 'va_bca';
+  paymentStatus: 'pending_payment' | 'escrow_secured' | 'shipped_transit' | 'delivered' | 'cancelled';
+  expedition: 'JNE Express' | 'J&T Express' | 'SiCepat Ekspres' | 'Pos Indonesia' | 'GoSend Instant';
+  receiptNumber: string; // Indonesian No Resi
+  currentTrackingStepIndex: number;
+  trackingLogs: TrackingStepLog[];
+  createdAt: string;
+}
+

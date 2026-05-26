@@ -5,7 +5,7 @@ import { ShoppingCart, Heart, ShieldCheck, MapPin, BadgeCheck, X, QrCode, Credit
 interface MarketplaceDetailProps {
   item: MarketplaceItem;
   onClose: () => void;
-  onBuySuccess: (itemId: string) => void;
+  onBuySuccess: (itemId: string, method: 'qris' | 'gopay' | 'ovo' | 'va_bca') => void;
 }
 
 export default function MarketplaceDetail({ item, onClose, onBuySuccess }: MarketplaceDetailProps) {
@@ -43,7 +43,7 @@ export default function MarketplaceDetail({ item, onClose, onBuySuccess }: Marke
   };
 
   const handleCompleteTransaction = () => {
-    onBuySuccess(item.id);
+    onBuySuccess(item.id, paymentMethod);
     setShowPaymentModal(false);
     onClose();
   };
