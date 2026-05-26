@@ -17,6 +17,7 @@ export interface Comment {
   userName: string;
   userAvatar: string;
   content: string;
+  image?: string;
   createdAt: string;
 }
 
@@ -33,11 +34,20 @@ export interface Post {
   location?: string;
 }
 
+export interface MessageMarketplaceContext {
+  itemId: string;
+  itemTitle: string;
+  itemPrice: number;
+  itemImage: string;
+}
+
 export interface Message {
   id: string;
   senderId: string;
   receiverId: string;
   content: string;
+  image?: string;
+  marketplaceContext?: MessageMarketplaceContext;
   isRead: boolean;
   createdAt: string;
 }
@@ -102,7 +112,7 @@ export interface EscrowTransaction {
   buyerName: string;
   paymentMethod: 'qris' | 'gopay' | 'ovo' | 'va_bca';
   paymentStatus: 'pending_payment' | 'escrow_secured' | 'shipped_transit' | 'delivered' | 'cancelled';
-  expedition: 'JNE Express' | 'J&T Express' | 'SiCepat Ekspres' | 'Pos Indonesia' | 'GoSend Instant';
+  expedition: 'JNE Express' | 'J&T Express' | 'SiCepat Ekspres' | 'Pos Indonesia' | 'GoSend Instant' | 'Anteraja' | 'Shopee Xpress';
   receiptNumber: string; // Indonesian No Resi
   currentTrackingStepIndex: number;
   trackingLogs: TrackingStepLog[];

@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+@keyframes blink-custom {
+  0% {
+    background-color: rgba(245, 158, 11, 0.15); /* amber soft */
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    background-color: rgba(16, 185, 129, 0.3); /* emerald bright */
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.6);
+  }
+  100% {
+    background-color: rgba(59, 130, 246, 0.15); /* blue soft */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+  }
+}
+
+.animate-blink-custom {
+  animation: blink-custom 1.5s ease-in-out infinite alternate;
+}
+

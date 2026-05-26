@@ -42,7 +42,10 @@ import {
   ArrowRight,
   RefreshCw,
   Sliders,
-  ClipboardList
+  ClipboardList,
+  Trash2,
+  Smile,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function App() {
@@ -104,10 +107,11 @@ export default function App() {
   const [viewListingId, setViewListingId] = useState<string | null>(null);
   
   // Custom states
-  const [postQuery, setPostQuery] = useState('');
-  const [marketQuery, setMarketQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeMarketCategory, setActiveMarketCategory] = useState<string>('Semua');
   const [newCommentText, setNewCommentText] = useState<{ [postId: string]: string }>({});
+  const [newCommentImage, setNewCommentImage] = useState<{ [postId: string]: string }>({});
+  const [activeCommentEmojiBoxId, setActiveCommentEmojiBoxId] = useState<string | null>(null);
   const [showNotificationBadgeSplash, setShowNotificationBadgeSplash] = useState(false);
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
@@ -194,10 +198,28 @@ export default function App() {
     }
   }, [theme]);
 
+  // Automatically mark messages as read when active chat thread is opened or on the chat tab
+  useEffect(() => {
+    if (activeTab === 'chat' && activeChatFriendId) {
+      setMessages(prev => {
+        const hasUnread = prev.some(m => m.senderId === activeChatFriendId && m.receiverId === currentUser.id && !m.isRead);
+        if (!hasUnread) return prev;
+        return prev.map(m =>
+          m.senderId === activeChatFriendId && m.receiverId === currentUser.id && !m.isRead
+            ? { ...m, isRead: true }
+            : m
+        );
+      });
+    }
+  }, [activeTab, activeChatFriendId, currentUser.id]);
+
   // Handle Tab Switch Actions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setViewListingId(null);
+    if (tab === 'chat' && !activeChatFriendId && friends.length > 0) {
+      setActiveChatFriendId(friends[0].id);
+    }
   };
 
   const toggleTheme = () => {
@@ -319,16 +341,22 @@ export default function App() {
     );
   };
 
+  const handleDeletePost = (postId: string) => {
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  };
+
   const handleCommentPost = (postId: string) => {
     const text = newCommentText[postId]?.trim();
-    if (!text) return;
+    const attachedImg = newCommentImage[postId];
+    if (!text && !attachedImg) return;
 
     const newComment = {
       id: 'comm_' + Date.now(),
       userId: currentUser.id,
       userName: currentUser.displayName,
       userAvatar: currentUser.avatar,
-      content: text,
+      content: text || '',
+      image: attachedImg || undefined,
       createdAt: 'Baru saja'
     };
 
@@ -342,6 +370,7 @@ export default function App() {
     );
 
     setNewCommentText(prev => ({ ...prev, [postId]: '' }));
+    setNewCommentImage(prev => ({ ...prev, [postId]: '' }));
   };
 
   // --- Business logic: Friend Request responses ---
@@ -382,12 +411,14 @@ export default function App() {
   };
 
   // --- Business logic: Chat Messaging replies ---
-  const handleSendMessage = (senderId: string, receiverId: string, content: string) => {
+  const handleSendMessage = (senderId: string, receiverId: string, content: string, image?: string, marketplaceContext?: any) => {
     const newMsg: Message = {
       id: 'm_' + Date.now(),
       senderId,
       receiverId,
       content,
+      image,
+      marketplaceContext,
       isRead: true,
       createdAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     };
@@ -395,13 +426,87 @@ export default function App() {
     setMessages(prev => [...prev, newMsg]);
   };
 
-  const handleSimulateReply = (senderId: string, text: string) => {
+  const handleContactSeller = (item: MarketplaceItem) => {
+    if (item.sellerId === currentUser.id) return;
+
+    // Ensure seller is in friends state so they show up in inbox contacts list
+    setFriends(prev => {
+      const alreadyFriend = prev.some(f => f.id === item.sellerId);
+      if (alreadyFriend) return prev;
+      
+      const newFriend: Friend = {
+        id: item.sellerId,
+        displayName: item.sellerName,
+        avatar: item.sellerAvatar,
+        isOnline: true
+      };
+      return [...prev, newFriend];
+    });
+
+    const formatPrice = (value: number) => {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(value);
+    };
+
+    const textMessage = `Halo ${item.sellerName}, apakah unit "${item.title}" seharga ${formatPrice(item.price)} masih tersedia? Saya sangat tertarik membelinya.`;
+    
+    // Check if we already have queries under this marketplace item to avoid excessive duplicates
+    const contextExists = messages.some(msg => msg.marketplaceContext?.itemId === item.id);
+    
+    if (!contextExists) {
+      const newMsg: Message = {
+        id: 'm_market_init_' + Date.now(),
+        senderId: currentUser.id,
+        receiverId: item.sellerId,
+        content: textMessage,
+        marketplaceContext: {
+          itemId: item.id,
+          itemTitle: item.title,
+          itemPrice: item.price,
+          itemImage: item.image
+        },
+        isRead: true,
+        createdAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, newMsg]);
+
+      // Simulate a very quick realistic automatic seller reply!
+      setTimeout(() => {
+        const replyMsg: Message = {
+          id: 'm_market_reply_' + Date.now(),
+          senderId: item.sellerId,
+          receiverId: currentUser.id,
+          content: `Halo! Iya kak, "${item.title}" masih ada dan siap lho. Pembayaran bisa pakai Rekber Escrow di tab Marketplace juga biar aman 👍 Kapan ya rencana kakak ingin COD atau dikirim?`,
+          marketplaceContext: {
+            itemId: item.id,
+            itemTitle: item.title,
+            itemPrice: item.price,
+            itemImage: item.image
+          },
+          isRead: false,
+          createdAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, replyMsg]);
+      }, 1500);
+    }
+
+    // Direct redirection to Inbox
+    setActiveChatFriendId(item.sellerId);
+    setActiveTab('chat');
+    setViewListingId(null);
+  };
+
+  const handleSimulateReply = (senderId: string, text: string, image?: string) => {
     const sender = friends.find(f => f.id === senderId);
     const newMsg: Message = {
       id: 'm_reply_' + Date.now(),
       senderId,
       receiverId: currentUser.id,
       content: text,
+      image,
       isRead: activeTab === 'chat' && activeChatFriendId === senderId, // Is read if user is active in chat tab with this friend
       createdAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     };
@@ -422,6 +527,10 @@ export default function App() {
       };
       setNotifications(prev => [msgNotif, ...prev]);
     }
+  };
+
+  const handleDeleteMessages = (messageIds: string[]) => {
+    setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
   };
 
   // --- Business logic: Marketplace checkout and selling ---
@@ -463,7 +572,11 @@ export default function App() {
     setNotifications(prev => [sellNotif, ...prev]);
   };
 
-  const handleCompletePaymentTransactionByBuyer = (itemId: string, method: 'qris' | 'gopay' | 'ovo' | 'va_bca') => {
+  const handleCompletePaymentTransactionByBuyer = (
+    itemId: string, 
+    method: 'qris' | 'gopay' | 'ovo' | 'va_bca',
+    selectedExpedition?: 'JNE Express' | 'J&T Express' | 'SiCepat Ekspres' | 'Pos Indonesia' | 'GoSend Instant' | 'Anteraja' | 'Shopee Xpress'
+  ) => {
     // Modify status of bought item
     setMarketplaceItems(prev =>
       prev.map(it => (it.id === itemId ? { ...it, isSold: true } : it))
@@ -473,15 +586,17 @@ export default function App() {
     if (!boughtItem) return;
 
     // Establish indonesian resi trace log
-    const indonesianExpeditions: ('JNE Express' | 'J&T Express' | 'SiCepat Ekspres' | 'Pos Indonesia' | 'GoSend Instant')[] = [
+    const indonesianExpeditions: ('JNE Express' | 'J&T Express' | 'SiCepat Ekspres' | 'Pos Indonesia' | 'GoSend Instant' | 'Anteraja' | 'Shopee Xpress')[] = [
       'SiCepat Ekspres',
       'J&T Express',
       'JNE Express',
       'Pos Indonesia',
-      'GoSend Instant'
+      'GoSend Instant',
+      'Anteraja',
+      'Shopee Xpress'
     ];
-    // pick randomized initial expedition
-    const chosenExpedition = indonesianExpeditions[Math.floor(Math.random() * indonesianExpeditions.length)];
+    // pick randomized initial expedition or manual choice
+    const chosenExpedition = selectedExpedition || indonesianExpeditions[Math.floor(Math.random() * indonesianExpeditions.length)];
     const randomResi = 'IDN' + Math.floor(100000000000 + Math.random() * 900000000000);
 
     const initialLogs = [
@@ -699,6 +814,7 @@ export default function App() {
 
       setHighlightedPostId(matchedPostId);
 
+      let foundCommentId = '';
       if (notif.type === 'comment') {
         const post = posts.find(p => p.id === matchedPostId);
         if (post && post.comments.length > 0) {
@@ -708,21 +824,29 @@ export default function App() {
           );
           if (comment) {
             setHighlightedCommentId(comment.id);
+            foundCommentId = comment.id;
           } else {
             setHighlightedCommentId(post.comments[0].id);
+            foundCommentId = post.comments[0].id;
           }
         }
       } else {
         setHighlightedCommentId(null);
       }
 
-      // Scroll smoothly to target post
+      // Scroll smoothly to target comment or post with precision
       setTimeout(() => {
-        const element = document.getElementById(`post-${matchedPostId}`);
+        const scrollerId = foundCommentId ? `comment-${foundCommentId}` : `post-${matchedPostId}`;
+        const element = document.getElementById(scrollerId);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          const fallbackElement = document.getElementById(`post-${matchedPostId}`);
+          if (fallbackElement) {
+            fallbackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
-      }, 250);
+      }, 300);
     } else if (notif.type === 'marketplace') {
       setActiveTab('marketplace');
       if (notif.targetId) {
@@ -766,6 +890,10 @@ export default function App() {
         unreadCount={unreadCount}
         unreadMessagesCount={unreadMessagesCount}
         onNotificationClick={handleNotificationClick}
+        friends={friends}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        setActiveChatFriendId={setActiveChatFriendId}
       />
 
       {/* Body Core Content layout Container */}
@@ -789,23 +917,23 @@ export default function App() {
           {/* Column 2&3: Primary Tab Stream Panel (Feed, Marketplace, Chat, Profile) */}
           <main className="lg:col-span-3 space-y-6 pb-24 lg:pb-12 text-left">
             
-            {/* Realtime Event Sim Trigger Box ( Indonesia Region Custom Simulator ) */}
-            <div className="bg-gradient-to-r from-emerald-500/20 via-teal-500/10 to-transparent border border-emerald-500/20 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Realtime Event Sim Trigger Box ( Indonesia Region Custom Simulator ) with silver styled text box */}
+            <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm text-left">
               <div className="text-left space-y-1">
-                <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase bg-emerald-500 text-white px-1.5 py-0.5 rounded-sm tracking-wider">
-                  Real-time Simulate Control
+                <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-sm tracking-wider border border-slate-600">
+                  Simulasi Realtime
                 </span>
-                <p className="text-xs font-bold text-gray-900 dark:text-white">
+                <p className="text-xs font-bold text-[#e2e8f0] dark:text-[#f1f5f9]">
                   Simulasikan Panggilan Sinyal Realtime?
                 </p>
-                <p className="text-[10px] text-gray-500 dark:text-neutral-400">
-                  Klik tombol untuk mensimulasikan pesan instan, permintaan pertemanan, dan menyinkronkan badge notifikasi.
+                <p className="text-[10px] text-slate-400">
+                  Simulasikan pesan instan, kemajuan kurir, dan sinkronkan dengan database Idebagus di Indonesia secara instan.
                 </p>
               </div>
 
               <button
                 onClick={triggerSimulatedIncomingNotification}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-extrabold rounded-xl shadow-xs shrink-0 cursor-pointer active:scale-95 transition-all"
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-650 text-slate-200 hover:text-white border border-slate-600 text-[11px] font-extrabold rounded-xl shadow-xs shrink-0 cursor-pointer active:scale-95 transition-all"
               >
                 Kirim Sinyal Masuk Realtime ⚡
               </button>
@@ -832,22 +960,10 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Filter Search Social bar */}
-                <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-gray-400 dark:text-neutral-500"><Search className="h-4.5 w-4.5" /></span>
-                  <input
-                    type="text"
-                    placeholder="Saring konten feed berdasarkan kata kunci..."
-                    value={postQuery}
-                    onChange={(e) => setPostQuery(e.target.value)}
-                    className="w-full bg-white dark:bg-neutral-900 border border-gray-205 dark:border-neutral-800 rounded-2xl py-2 pl-10 pr-4 text-xs focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-
                 {/* Main chronological posts list */}
                 <div className="space-y-6">
                   {posts
-                    .filter(p => !postQuery || p.content.toLowerCase().includes(postQuery.toLowerCase()) || (p.location && p.location.toLowerCase().includes(postQuery.toLowerCase())))
+                    .filter(p => !searchQuery || p.content.toLowerCase().includes(searchQuery.toLowerCase()) || (p.location && p.location.toLowerCase().includes(searchQuery.toLowerCase())))
                     .map((post) => {
                       const hasLiked = post.likes.includes(currentUser.id);
                       return (
@@ -881,6 +997,17 @@ export default function App() {
                                 </div>
                               </div>
                             </div>
+
+                            {/* Delete Post action button if post belongs to user */}
+                            {post.userId === currentUser.id && (
+                              <button
+                                onClick={() => handleDeletePost(post.id)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all cursor-pointer"
+                                title="Hapus Postingan"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Content text */}
@@ -892,8 +1019,11 @@ export default function App() {
 
                           {/* Content image if has visual illustration */}
                           {post.image && (
-                            <div className="rounded-2xl overflow-hidden max-h-80 border border-gray-150 bg-gray-55 flex items-center justify-center">
-                              <img src={post.image} alt="Visual Attachment" className="w-full object-cover" />
+                            <div 
+                              onClick={() => setLightboxSrc(post.image)}
+                              className="rounded-2xl overflow-hidden h-[250px] w-[250px] border border-gray-150 bg-gray-55 flex items-center justify-center cursor-zoom-in group shadow-xs hover:shadow-md transition-shadow select-none mx-auto sm:mx-0"
+                            >
+                              <img src={post.image} alt="Visual Attachment" className="w-[250px] h-[250px] object-cover duration-300 group-hover:scale-105 transition-transform" />
                             </div>
                           )}
 
@@ -923,34 +1053,42 @@ export default function App() {
                                 return (
                                   <div 
                                     key={comment.id} 
+                                    id={`comment-${comment.id}`}
                                     className={`flex gap-2.5 items-start text-xs text-left p-1.5 rounded-xl transition-all ${
                                       isCommentHighlighted 
-                                        ? 'bg-amber-100/90 dark:bg-amber-950/40 border-l-4 border-amber-500 shadow-sm animate-pulse scale-[1.01]' 
+                                        ? 'animate-blink-custom border-l-4 border-emerald-500 shadow-lg scale-[1.02] ring-1 ring-emerald-400/30' 
                                         : ''
                                     }`}
                                   >
                                     <img src={comment.userAvatar} alt={comment.userName} className="h-7 w-7 rounded-full object-cover shrink-0 mt-0.5" />
                                     <div className={`flex-1 min-w-0 p-2 text-[11px] rounded-xl border ${
                                       isCommentHighlighted
-                                        ? 'bg-amber-50 dark:bg-amber-900/35 border-amber-400 text-slate-900 shadow-inner'
+                                        ? 'bg-white/80 dark:bg-neutral-900/95 border-emerald-500 text-gray-900 dark:text-white shadow-md'
                                         : 'bg-slate-700 text-white dark:bg-neutral-950 border-slate-600 dark:border-neutral-800'
                                     }`}>
                                       <div className="flex justify-between items-baseline mb-0.5">
                                         <span className={`font-bold flex items-center gap-1.5 ${
-                                          isCommentHighlighted ? 'text-slate-900' : 'text-slate-100 dark:text-slate-200'
+                                          isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-100 dark:text-slate-200'
                                         }`}>
                                           {comment.userName}
                                           {isCommentHighlighted && (
-                                            <span className="text-[8px] bg-amber-600 text-white font-extrabold px-1.5 py-0.5 rounded-full select-none animate-bounce shadow-xs">
+                                            <span className="text-[8px] bg-gradient-to-r from-emerald-500 to-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded-full select-none animate-bounce shadow-xs">
                                               Sumber Notif ✨
                                             </span>
                                           )}
                                         </span>
-                                        <span className={`text-[8px] ${isCommentHighlighted ? 'text-amber-700' : 'text-slate-400'}`}>{comment.createdAt}</span>
+                                        <span className={`text-[8px] ${isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{comment.createdAt}</span>
                                       </div>
-                                      <p className={`text-xs leading-relaxed font-semibold ${
-                                        isCommentHighlighted ? 'text-slate-900' : 'text-white'
+                                      <p className={`text-xs leading-relaxed font-semibold block break-words ${
+                                        isCommentHighlighted ? 'text-gray-950 dark:text-neutral-100' : 'text-white'
                                       }`}>{comment.content}</p>
+
+                                      {/* Render comment image if attached */}
+                                      {comment.image && (
+                                        <div className="mt-2 rounded-xl overflow-hidden max-h-36 border border-white/10 dark:border-neutral-800 bg-neutral-950/40">
+                                          <img src={comment.image} alt="Komentar Foto" className="w-[85%] object-cover cursor-pointer hover:opacity-95" />
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 );
@@ -958,24 +1096,86 @@ export default function App() {
                             </div>
                           )}
 
-                          {/* Write comments form */}
-                          <div className="flex gap-2.5 items-center">
-                            <input
-                              type="text"
-                              placeholder="Tulis opini terbaik Anda..."
-                              value={newCommentText[post.id] || ''}
-                              onChange={(e) => setNewCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') handleCommentPost(post.id);
-                              }}
-                              className="flex-1 bg-gray-50 dark:bg-neutral-800 rounded-xl px-4 py-2 border border-gray-200 dark:border-neutral-750 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-950 focus:outline-hidden"
-                            />
-                            <button
-                              onClick={() => handleCommentPost(post.id)}
-                              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl text-xs font-bold cursor-pointer transition-colors"
-                            >
-                              Kirim
-                            </button>
+                          {/* Write comments form with photo upload and emojis */}
+                          <div className="space-y-2 mt-2 font-sans">
+                            {/* Attached image preview for comment */}
+                            {newCommentImage[post.id] && (
+                              <div className="flex items-center gap-2.5 p-1.5 bg-gray-50 dark:bg-neutral-950 rounded-xl max-w-xs text-[10px] animate-fade-in border border-gray-150/50 dark:border-neutral-850">
+                                <img src={newCommentImage[post.id]} className="h-8 w-8 object-cover rounded-md" />
+                                <span className="text-gray-450 truncate">Foto komentar disematkan</span>
+                                <button 
+                                  onClick={() => setNewCommentImage(prev => ({ ...prev, [post.id]: '' }))}
+                                  className="ml-auto text-rose-500 hover:text-rose-600"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Quick emojis for post comment */}
+                            {activeCommentEmojiBoxId === post.id && (
+                              <div className="flex flex-wrap gap-2 p-1.5 bg-gray-50 dark:bg-neutral-950 rounded-xl border border-gray-150 dark:border-neutral-800 animate-slide-in">
+                                {['👍', '❤️', '😂', '😮', '😢', '😡', '✨', '🔥'].map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => setNewCommentText(prev => ({ ...prev, [post.id]: (prev[post.id] || '') + emoji }))}
+                                    className="hover:scale-125 transition-transform text-xs cursor-pointer"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                                <button 
+                                  onClick={() => setActiveCommentEmojiBoxId(null)}
+                                  className="text-[9px] text-gray-450 dark:text-neutral-550 uppercase font-black ml-auto"
+                                >
+                                  Tutup
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 items-center">
+                              {/* Attach image trigger */}
+                              <label className="p-2 bg-gray-100 hover:bg-gray-155 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-450 rounded-xl cursor-pointer transition-all shrink-0">
+                                <ImageIcon className="h-4.5 w-4.5 text-emerald-500" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const url = URL.createObjectURL(file);
+                                      setNewCommentImage(prev => ({ ...prev, [post.id]: url }));
+                                    }
+                                  }}
+                                />
+                              </label>
+
+                              {/* Emoji toggle */}
+                              <button
+                                onClick={() => setActiveCommentEmojiBoxId(activeCommentEmojiBoxId === post.id ? null : post.id)}
+                                className="p-2 bg-gray-100 hover:bg-gray-155 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-455 rounded-xl cursor-pointer transition-all shrink-0"
+                              >
+                                <Smile className="h-4.5 w-4.5 text-amber-500" />
+                              </button>
+
+                              <input
+                                type="text"
+                                placeholder="Tulis opini terbaik Anda..."
+                                value={newCommentText[post.id] || ''}
+                                onChange={(e) => setNewCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') handleCommentPost(post.id);
+                                }}
+                                className="flex-1 bg-gray-50 dark:bg-slate-900 rounded-xl px-4 py-2 border border-gray-200 dark:border-neutral-750 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-950 dark:text-gray-150 focus:outline-hidden"
+                              />
+                              <button
+                                onClick={() => handleCommentPost(post.id)}
+                                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                              >
+                                Kirim
+                              </button>
+                            </div>
                           </div>
 
                         </article>
@@ -991,659 +1191,159 @@ export default function App() {
 
               </div>
             )}
-
-            {/* --- TAB: MARKETPLACE --- */}
+                {/* --- TAB: MARKETPLACE --- */}
             {activeTab === 'marketplace' && (
               <div className="space-y-6">
                 
-                {/* Visual Integrated Sub-navigation Menus */}
-                <div className="flex border-b border-gray-150 dark:border-neutral-800 pb-2 mb-4 gap-2 text-xs font-bold overflow-x-auto scrollbar-none shrink-0 text-left">
-                  <button 
-                    onClick={() => { setMarketSubTab('browse'); setViewListingId(null); }}
-                    className={`pb-2 px-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      marketSubTab === 'browse' 
-                        ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-extrabold' 
-                        : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-neutral-300'
-                    }`}
+                {/* Visual Sell Item banner: styled as silver text box and matching the custom colors */}
+                <div className="bg-slate-800 dark:bg-slate-900 p-6 rounded-3xl border border-slate-705 text-[#cbd5e1] flex flex-col md:flex-row items-center justify-between gap-4 shadow-md text-left">
+                  <div className="space-y-1">
+                    <span className="bg-slate-700 text-[#f1f5f9] font-extrabold text-[9px] px-2.5 py-0.5 rounded-sm uppercase tracking-wider border border-slate-600">
+                      PASAR NIAGA REGIONAL INDONESIA
+                    </span>
+                    <h3 className="text-base font-extrabold text-[#f1f5f9]">
+                      Ingin Menjual Barang Milikmu?
+                    </h3>
+                    <p className="text-xs text-slate-450">
+                      Pasang iklan gratis produk lokasimu dengan deskripsi lengkap sekarang di Idebagus.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowSellModal(true)}
+                    className="px-4 py-2.5 bg-slate-700 hover:bg-slate-650 text-white font-extrabold text-[#cbd5e1] text-xs rounded-xl shadow-xs shrink-0 cursor-pointer transition-colors border border-slate-600"
                   >
-                    <ShoppingBag className="h-4 w-4" />
-                    Beli & Jelajahi (Side-by-side)
-                  </button>
-                  <button 
-                    onClick={() => setMarketSubTab('orders')}
-                    className={`pb-2 px-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      marketSubTab === 'orders' 
-                        ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-extrabold' 
-                        : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-neutral-300'
-                    }`}
-                  >
-                    <Truck className="h-4 w-4 text-emerald-500" />
-                    Pelacakan & Status Kiriman ({transactions.length})
-                  </button>
-                  <button 
-                    onClick={() => setMarketSubTab('admin')}
-                    className={`pb-2 px-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      marketSubTab === 'admin' 
-                        ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-extrabold' 
-                        : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-neutral-300'
-                    }`}
-                  >
-                    <Settings className="h-4 w-4 text-amber-500" />
-                    Payment Admin Tool ({transactions.length})
+                    Mulai Berjualan (Pasang Iklan)
                   </button>
                 </div>
 
-                {/* --- MARKET SUB TAB 1: BROWSE & SIDE-BY-SIDE --- */}
-                {marketSubTab === 'browse' && (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    
-                    {/* Left Pane: Filter, Search & Product Grid Cards */}
-                    <div className={`space-y-6 transition-all duration-300 ${viewListingId ? 'lg:col-span-5' : 'lg:col-span-12'}`}>
-                      
-                      {/* Visual Sell Item banner */}
-                      {!viewListingId && (
-                        <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-6 rounded-3xl text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-md text-left">
-                          <div className="space-y-1">
-                            <span className="bg-white/20 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-sm">PASAR NIAGA REGIONAL INDONESIA</span>
-                            <h3 className="text-base font-extrabold">Ingin Menjual Barang Milikmu?</h3>
-                            <p className="text-xs text-teal-100">Pasang iklan gratis dengan jaminan Escrow Bersama PT Ide Bagus Indonesia.</p>
-                          </div>
-                          <button
-                            onClick={() => setShowSellModal(true)}
-                            className="px-4 py-2 bg-white hover:bg-neutral-50 text-teal-700 font-extrabold text-xs rounded-xl shadow-xs shrink-0 cursor-pointer transition-transform"
-                          >
-                            Mulai Berjualan (Pasang Iklan)
-                          </button>
-                        </div>
-                      )}
+                {/* Header title/filters: Silver styled textboxes */}
+                <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center text-left">
+                  <div className="p-3.5 rounded-2xl bg-slate-800 border border-slate-705 text-left">
+                    <h3 className="font-extrabold text-sm text-[#cbd5e1] uppercase tracking-wider">
+                      Katalog Barang Terbuka
+                    </h3>
+                    <p className="text-[10px] text-slate-450">
+                      Pajangan iklan terlengkap dari berbagai penjual lokal di seluruh penjuru Indonesia
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowSellModal(true)}
+                    className="text-[10.5px] bg-slate-700 hover:bg-slate-650 text-white border border-slate-600 font-extrabold px-3 py-2 rounded-xl shrink-0 cursor-pointer"
+                  >
+                    + Pasang Iklan Baru
+                  </button>
+                </div>
 
-                      {/* Header title/filters */}
-                      <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center text-left">
-                        <div>
-                          <h3 className="font-extrabold text-sm text-gray-900 dark:text-white uppercase tracking-wider">Katalog Barang Terbuka</h3>
-                          <p className="text-[10px] text-gray-400">Pembayaran aman dengan sistem escrow dan pengiriman ekspedisi Indonesia</p>
-                        </div>
-                        {viewListingId && (
-                          <button 
-                            onClick={() => setShowSellModal(true)}
-                            className="text-[10.5px] bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold px-3 py-1.5 rounded-xl shrink-0"
-                          >
-                            + Pasang Iklan
-                          </button>
-                        )}
-                      </div>
+                {/* Search box & Category tabs */}
+                <div className="space-y-3 text-left">
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setActiveMarketCategory(cat)}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
+                          activeMarketCategory === cat
+                            ? 'bg-slate-700 text-[#cbd5e1] font-extrabold border border-indigo-500/10'
+                            : 'bg-white dark:bg-neutral-900 text-gray-650 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-150 dark:border-neutral-800'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                      {/* Search box & Category tabs */}
-                      <div className="space-y-3 text-left">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Cari barang gawai, laptop, mebel di pasar..."
-                            value={marketQuery}
-                            onChange={(e) => setMarketQuery(e.target.value)}
-                            className="w-full bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-2xl py-2 pl-4 pr-10 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-hidden text-gray-950 dark:text-white"
-                          />
-                          <span className="absolute right-3.5 top-2.5 text-gray-400"><Search className="h-4.5 w-4.5" /></span>
-                        </div>
-
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                          {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
-                            <button
-                              key={cat}
-                              onClick={() => setActiveMarketCategory(cat)}
-                              className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
-                                activeMarketCategory === cat
-                                  ? 'bg-emerald-500 text-white shadow-xs font-extrabold'
-                                  : 'bg-white dark:bg-neutral-900 text-gray-650 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-100 dark:border-neutral-800'
-                              }`}
-                            >
-                              {cat}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Products list grid (Dynamic responsive side-by-side columns) */}
-                      <div className={`grid gap-5 ${
-                        viewListingId 
-                          ? 'grid-cols-1 sm:grid-cols-1 md:grid-cols-1' // Shrinks to single list when detailed pane is open
-                          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                      }`}>
-                        {marketplaceItems
-                          .filter(
-                            item =>
-                              (activeMarketCategory === 'Semua' || item.category.toLowerCase().includes(activeMarketCategory.toLowerCase().split(' ')[0])) &&
-                              (!marketQuery || item.title.toLowerCase().includes(marketQuery.toLowerCase()) || item.location.toLowerCase().includes(marketQuery.toLowerCase()))
-                          )
-                          .map((item) => {
-                            const isSelected = item.id === viewListingId;
-                            return (
-                              <div
-                                key={item.id}
-                                onClick={() => setViewListingId(item.id)}
-                                className={`bg-white dark:bg-neutral-900 border rounded-3xl overflow-hidden shadow-2xs group hover:scale-[1.01] transition-all flex flex-col justify-between cursor-pointer text-left ${
-                                  isSelected 
-                                    ? 'border-emerald-500 ring-2 ring-emerald-500/15 bg-emerald-50/5 dark:bg-emerald-950/5 shadow-md' 
-                                    : 'border-gray-150 dark:border-neutral-800 hover:border-gray-300 dark:hover:border-neutral-700'
-                                }`}
-                              >
-                                <div className="relative h-40 bg-gray-100 relative shrink-0">
-                                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
-                                  {item.isSold ? (
-                                    <span className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center text-xs font-black text-white uppercase tracking-wider">
-                                       SUDAH AMAN TERJUAL ✔️
-                                    </span>
-                                  ) : (
-                                    <span className="absolute top-2.5 left-2.5 bg-teal-500 text-white font-extrabold text-[8px] uppercase px-2 py-0.5 rounded-sm">
-                                      {item.condition}
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
-                                  <div>
-                                    <span className="text-[8px] font-extrabold text-emerald-500 uppercase tracking-widest">{item.category}</span>
-                                    <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate mt-0.5 group-hover:text-emerald-500 transition-colors">
-                                      {item.title}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm font-black text-teal-600 dark:text-teal-400 mt-1">
-                                      {formatRupiah(item.price)}
-                                    </p>
-                                  </div>
-                                  
-                                  <div className="pt-2.5 border-t border-gray-100 dark:border-neutral-850/60 flex items-center justify-between text-[9px] text-gray-400">
-                                    <span className="flex items-center gap-0.5 truncate max-w-[120px]">
-                                      <MapPin className="h-3 w-3 text-rose-500 shrink-0 inline" />
-                                      {item.location.split(',')[0]}
-                                    </span>
-                                    <span className="font-semibold text-emerald-500 truncate max-w-[90px]">{item.sellerName}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-
-                      {marketplaceItems.length === 0 && (
-                        <div className="text-center py-10 text-neutral-400 text-xs">
-                          Belum ada barang lokal yang dipajang.
-                        </div>
-                      )}
-
-                    </div>
-
-                    {/* Right Pane: MarketplaceDetail Side by Side Pane widget */}
-                    {viewListingId ? (
-                      <div className="lg:col-span-7 lg:sticky lg:top-4 bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-md">
-                        {(() => {
-                          const targetProduct = marketplaceItems.find(i => i.id === viewListingId);
-                          return targetProduct ? (
-                            <MarketplaceDetail
-                              item={targetProduct}
-                              onClose={() => setViewListingId(null)}
-                              onBuySuccess={handleCompletePaymentTransactionByBuyer}
-                            />
+                {/* Products list grid (Dynamic responsive side-by-side columns spanning full grid width) */}
+                <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
+                  {marketplaceItems
+                    .filter(
+                      item =>
+                        (activeMarketCategory === 'Semua' || item.category.toLowerCase().includes(activeMarketCategory.toLowerCase().split(' ')[0])) &&
+                        (!searchQuery || item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.location.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => setViewListingId(item.id)}
+                        className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-2xs group hover:scale-[1.01] transition-all flex flex-col justify-between cursor-pointer text-left"
+                      >
+                        <div className="relative h-40 bg-gray-100 shrink-0">
+                          <img src={item.image} alt={item.title} className="h-full w-full object-cover animate-fade-in" />
+                          {item.isSold ? (
+                            <span className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center text-xs font-black text-white uppercase tracking-wider">
+                               SUDAH HABIS TERJUAL ✔️
+                            </span>
                           ) : (
-                            <div className="p-10 text-center text-gray-400">Menghubungkan ke server produk...</div>
-                          );
-                        })()}
-                      </div>
-                    ) : (
-                      <div className="hidden lg:flex lg:col-span-12 h-44 border border-dashed border-gray-250 dark:border-neutral-800 rounded-3xl items-center justify-center text-neutral-400 text-xs flex-col p-6 space-y-2">
-                        <ShoppingBag className="h-8 w-8 text-neutral-350 dark:text-neutral-700 animate-pulse" />
-                        <p className="font-bold text-gray-600 dark:text-neutral-400">Navigasi Side-by-Side Inovatif</p>
-                        <p className="text-[10px] text-gray-400">Pilih salah satu iklan di panel kiri untuk membuka formulir checkout escrow instan tanpa berpindah halaman.</p>
-                      </div>
-                    )}
-
-                  </div>
-                )}
-
-                {/* --- MARKET SUB TAB 2: MY ORDERS WITH INDONESIAN LOGISTICS timeline --- */}
-                {marketSubTab === 'orders' && (
-                  <div className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl p-6 text-left space-y-6">
-                    <div>
-                      <h3 className="font-extrabold text-sm text-gray-950 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                        <Truck className="h-4.5 w-4.5 text-emerald-500" />
-                        Pelacakan Pesanan & Sistem Jaminan Escrow
-                      </h3>
-                      <p className="text-[10px] text-gray-400 block mt-0.5">Pantau status transaksi regional Anda yang diawasi oleh Idebagus Rekber Escrow Indonesia</p>
-                    </div>
-
-                    {transactions.length === 0 ? (
-                      <div className="text-center py-12 border border-dashed border-gray-200 dark:border-neutral-800 rounded-3xl max-w-md mx-auto space-y-3">
-                        <ClipboardList className="h-10 w-10 text-neutral-300 mx-auto" />
-                        <div className="space-y-1">
-                          <p className="text-xs font-bold text-gray-700 dark:text-neutral-300">Belum Ada Transaksi Aktif</p>
-                          <p className="text-[10px] text-neutral-400 px-4 leading-relaxed">
-                            Cukup buka submenu "Beli & Jelajahi", pilih produk lokal pilihanmu, tekan "Beli Produk Sekarang" dan bayar simulasi via QRIS / Bank Transfer. Transaksi Anda akan otomatis muncul di sini secara real-time.
-                          </p>
+                            <span className="absolute top-2.5 left-2.5 bg-slate-800 border border-slate-700 text-[#cbd5e1] font-extrabold text-[8px] uppercase px-2 py-0.5 rounded-sm">
+                              {item.condition}
+                            </span>
+                          )}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                         
-                        {/* Transaction side-list (4 columns) */}
-                        <div className="md:col-span-4 space-y-3 border-r border-gray-100 dark:border-neutral-850/70 pr-0 md:pr-4">
-                          <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest pl-1">Histori Pembelian Anda</p>
-                          {transactions.map((txn) => (
-                            <div 
-                              key={txn.id}
-                              className="p-3.5 rounded-2xl border border-gray-150 dark:border-neutral-800 bg-gray-50/50 dark:bg-neutral-950 text-xs space-y-2 hover:bg-gray-100/50 transition-colors cursor-pointer"
-                            >
-                              <div className="flex gap-2">
-                                <img src={txn.itemImage} alt={txn.itemTitle} className="h-10 w-10 object-cover rounded-lg shrink-0" />
-                                <div className="min-w-0">
-                                  <h4 className="font-bold text-gray-900 dark:text-white truncate">{txn.itemTitle}</h4>
-                                  <p className="text-[10px] text-teal-600 dark:text-teal-400 font-extrabold">{formatRupiah(txn.itemPrice)}</p>
-                                </div>
-                              </div>
-                              
-                              <div className="flex justify-between items-center text-[9px] pt-1.5 border-t border-gray-150/50 dark:border-neutral-850">
-                                <span className="bg-slate-105 dark:bg-neutral-800 text-slate-500 px-1.5 py-0.5 rounded-sm font-bold uppercase">{txn.expedition.split(' ')[0]}</span>
-                                {txn.paymentStatus === 'delivered' ? (
-                                  <span className="text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-full">Selesai ✔️</span>
-                                ) : (
-                                  <span className="text-blue-500 font-bold bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded-full animate-pulse">Diproses 🚚</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                        <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                          <div>
+                            <span className="text-[8px] font-black text-slate-450 uppercase tracking-widest">{item.category}</span>
+                            <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate mt-0.5 group-hover:text-emerald-500 transition-colors">
+                              {item.title}
+                            </h4>
+                            <p className="text-xs sm:text-sm font-black text-slate-750 dark:text-[#f1f5f9] mt-1">
+                              {formatRupiah(item.price)}
+                            </p>
+                          </div>
+                          
+                          <div className="pt-2.5 border-t border-gray-100 dark:border-neutral-850/60 flex items-center justify-between text-[9px] text-gray-400">
+                            <span className="flex items-center gap-0.5 truncate max-w-[120px]">
+                              <MapPin className="h-3 w-3 text-rose-500 shrink-0 inline animate-pulse" />
+                              {item.location.split(',')[0]}
+                            </span>
+                            <span className="font-semibold text-emerald-500 truncate max-w-[90px]">{item.sellerName}</span>
+                          </div>
                         </div>
-
-                        {/* Transaction detail and tracking progress stepper (8 columns) */}
-                        <div className="md:col-span-8 space-y-5">
-                          {(() => {
-                            const activeTxn = transactions[0]; // focus on latest order
-                            const steps = [
-                              { label: 'Escrow', desc: 'Dana Diamankan' },
-                              { label: 'Penjual', desc: 'Menyerahkan Kurir' },
-                              { label: 'Transit', desc: 'Perjalanan Kota' },
-                              { label: 'Kurir', desc: 'Mengantar Alamat' },
-                              { label: 'Diterima', desc: 'Konfirmasi Finish' }
-                            ];
-
-                            return (
-                              <div className="space-y-5 bg-gray-50/30 dark:bg-neutral-950/20 p-4 rounded-3xl border border-gray-150 dark:border-neutral-850">
-                                
-                                {/* Info summary strip */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-white dark:bg-neutral-950 p-3.5 rounded-2xl border border-gray-150 dark:border-neutral-850">
-                                  <div>
-                                    <span className="text-[9px] font-extrabold uppercase bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-md">ID TRANSAKSI: {activeTxn.id}</span>
-                                    <h4 className="font-extrabold text-sm text-gray-950 dark:text-white mt-1">{activeTxn.itemTitle}</h4>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">Expedisi: <span className="font-bold text-gray-700 dark:text-neutral-300">{activeTxn.expedition}</span> • Resi: <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{activeTxn.receiptNumber}</span></p>
-                                  </div>
-                                  <div className="text-left sm:text-right shrink-0">
-                                    <p className="text-[9px] text-gray-400 font-bold">Dana Terkunci Escrow</p>
-                                    <p className="font-black text-sm text-teal-600 dark:text-teal-400 mt-0.5">{formatRupiah(activeTxn.itemPrice)}</p>
-                                  </div>
-                                </div>
-
-                                {/* Graphical Tracking Stepper Line */}
-                                <div className="py-4 px-2">
-                                  <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-4">Estimasi Alur Logistik Indonesia</p>
-                                  
-                                  <div className="relative flex justify-between items-center w-full">
-                                    {/* Line connector */}
-                                    <div className="absolute top-3 left-0 right-0 h-1 bg-gray-200 dark:bg-neutral-800 z-0 rounded-full" />
-                                    <div 
-                                      className="absolute top-3 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 z-0 rounded-full transition-all duration-500"
-                                      style={{ width: `${Math.min(100, Math.max(0, (activeTxn.currentTrackingStepIndex - 1) * 25))}%` }}
-                                    />
-
-                                    {/* Circles */}
-                                    {steps.map((st, idx) => {
-                                      const stepStatusIndex = idx + 1; // 1-indexed state
-                                      const isPassed = activeTxn.currentTrackingStepIndex >= stepStatusIndex;
-                                      const isCurrent = activeTxn.currentTrackingStepIndex === stepStatusIndex;
-
-                                      return (
-                                        <div key={st.label} className="relative z-10 flex flex-col items-center flex-1">
-                                          <div 
-                                            className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-[10px] border shadow-xs transition-all ${
-                                              isPassed 
-                                                ? 'bg-emerald-500 text-white border-emerald-400' 
-                                                : isCurrent 
-                                                  ? 'bg-blue-600 text-white border-blue-400 animate-pulse scale-105' 
-                                                  : 'bg-white dark:bg-neutral-900 text-gray-450 border-gray-200 dark:border-neutral-800'
-                                            }`}
-                                          >
-                                            {isPassed && idx < activeTxn.currentTrackingStepIndex ? '✓' : stepStatusIndex}
-                                          </div>
-                                          <span className="text-[9px] font-extrabold text-gray-800 dark:text-white mt-1.5 whitespace-nowrap">{st.label}</span>
-                                          <span className="text-[8px] text-gray-400 hidden sm:block mt-0.5">{st.desc}</span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Live chronological Courier logs */}
-                                <div className="space-y-3 bg-white dark:bg-neutral-950 p-4 rounded-2xl border border-gray-150 dark:border-neutral-850">
-                                  <div className="flex justify-between items-center text-[10px] font-semibold text-gray-500 border-b pb-1.5 border-gray-100 dark:border-neutral-850">
-                                    <span className="uppercase tracking-widest text-emerald-500 font-bold flex items-center gap-1">
-                                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                                      Informasi Realtime Logistik ({activeTxn.expedition})
-                                    </span>
-                                    <span>No. Kontrak Escrow: ESC-{activeTxn.id.slice(-5).toUpperCase()}</span>
-                                  </div>
-
-                                  <div className="relative pl-4 space-y-4 border-l border-emerald-250 dark:border-emerald-800/50 mt-2">
-                                    {activeTxn.trackingLogs.map((log, lIdx) => (
-                                      <div key={lIdx} className="relative text-left text-xs">
-                                        {/* Milestone target badge dot */}
-                                        <div className="absolute -left-[20.5px] top-1.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900" />
-                                        <div className="flex justify-between items-baseline mb-0.5">
-                                          <h5 className="font-extrabold text-gray-900 dark:text-white">{log.statusText}</h5>
-                                          <span className="text-[8px] font-mono text-gray-400 shrink-0">{log.time}</span>
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed font-medium">{log.note}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Manual Confirmation CTA */}
-                                {activeTxn.paymentStatus !== 'delivered' && (
-                                  <div className="pt-3.5 border-t border-gray-150/50 dark:border-neutral-850 flex items-center justify-between text-xs gap-3 flex-col sm:flex-row">
-                                    <div className="text-left">
-                                      <p className="text-[10px] font-semibold text-gray-600 dark:text-neutral-400">Apakah Paket Sudah Diterima?</p>
-                                      <p className="text-[9px] text-gray-400">Kurang dari 10 detik dana escrow akan dilepas ke penjual.</p>
-                                    </div>
-                                    <button
-                                      onClick={() => {
-                                        // Update to delivered
-                                        setTransactions(prev =>
-                                          prev.map(t => {
-                                            if (t.id === activeTxn.id) {
-                                              return {
-                                                ...t,
-                                                paymentStatus: 'delivered',
-                                                currentTrackingStepIndex: 5,
-                                                trackingLogs: [
-                                                  ...t.trackingLogs,
-                                                  {
-                                                    time: 'Baru saja',
-                                                    statusText: 'Paket Berhasil Diterima oleh Pembeli',
-                                                    note: 'Pembeli mengkonfirmasi pelunasan fisik barang di website Idebagus. Escrow PT Idebagus Indonesia sukses ditransfer ke Penjual.'
-                                                  }
-                                                ]
-                                              };
-                                            }
-                                            return t;
-                                          })
-                                        );
-
-                                        const completeNotif: AppNotification = {
-                                          id: 'notif_complete_' + Date.now(),
-                                          type: 'marketplace',
-                                          title: 'Transaksi Escrow Sukses! 🏆',
-                                          content: `Pembelian "${activeTxn.itemTitle}" selesai. Dana berhasil diteruskan ke penjual. Terima kasih!`,
-                                          isRead: false,
-                                          createdAt: 'Baru saja'
-                                        };
-                                        setNotifications(prev => [completeNotif, ...prev]);
-                                      }}
-                                      className="py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10.5px] rounded-xl cursor-pointer w-full sm:w-auto transition-transform active:scale-95 text-center"
-                                    >
-                                      Konfirmasi Terima Paket & Selesaikan Escrow ✔️
-                                    </button>
-                                  </div>
-                                )}
-
-                              </div>
-                            );
-                          })()}
-                        </div>
-
                       </div>
-                    )}
+                    ))}
+                </div>
+
+                {marketplaceItems.length === 0 && (
+                  <div className="text-center py-10 text-neutral-405 text-xs">
+                    Belum ada barang lokal yang dipajang.
                   </div>
                 )}
 
-                {/* --- MARKET SUB TAB 3: ADMIN PANEL (Tracking Settings & Real-time update simulations) --- */}
-                {marketSubTab === 'admin' && (
-                  <div className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl p-6 text-left space-y-6">
-                    <div>
-                      <h4 className="font-extrabold text-sm text-amber-500 uppercase tracking-wider flex items-center gap-2">
-                        <Settings className="h-4.5 w-4.5" />
-                        Setting Gerbang Admin Escrow & Ekspedisi
-                      </h4>
-                      <p className="text-[10px] text-gray-400 block mt-0.5">Kelola semua transaksi pembelian lokal, ganti rute pengantar, ganti armada ekspedisi, dan simulasikan logistik real-time.</p>
-                    </div>
-
-                    {transactions.length === 0 ? (
-                      <div className="text-center py-10 border border-dashed border-gray-200 dark:border-neutral-800 rounded-3xl max-w-md mx-auto space-y-3">
-                        <Settings className="h-9 w-9 text-amber-400 mx-auto animate-spin" style={{ animationDuration: '6s' }} />
-                        <p className="text-xs font-bold text-gray-600 dark:text-neutral-300">Belum Ada Transaksi yang Bisa Diadmin</p>
-                        <p className="text-[9.5px] text-gray-400 leading-relaxed px-4">
-                          Lakukan pembelian simulasi dari katalog "Beli & Jelajahi". Database transaksi escrow akan otomatis tercipta di admin panel ini, memungkinkan Anda menguji coba logistik realtime dengan fungsionalitas penuh.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        <p className="text-[10px] font-extrabold text-amber-600 tracking-wider uppercase bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
-                          Database Panel Penjual & Admin Logistik (Fungsionalitas Penuh) 
-                        </p>
-                        
-                        <div className="space-y-5">
-                          {transactions.map((txn) => {
-                            const isProcessing = transitsProcessing[txn.id];
-                            return (
-                              <div 
-                                key={txn.id} 
-                                className="bg-gray-55 dark:bg-neutral-950 p-4 rounded-3xl border border-gray-150 dark:border-neutral-850 space-y-4"
-                              >
-                                
-                                {/* Item headers details */}
-                                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-gray-250/50 dark:border-neutral-850 pb-3">
-                                  <div className="flex gap-2 text-xs">
-                                    <img src={txn.itemImage} alt={txn.itemTitle} className="h-10 w-10 object-cover rounded-lg" />
-                                    <div>
-                                      <h5 className="font-bold text-gray-950 dark:text-white">{txn.itemTitle}</h5>
-                                      <p className="text-[10px] text-gray-400">Buyer: <span className="font-semibold">{txn.buyerName}</span> • Pembayaran Escrow: <span className="uppercase text-slate-800 dark:text-slate-350 font-bold">{txn.paymentMethod}</span></p>
-                                    </div>
-                                  </div>
-                                  <div className="text-left sm:text-right text-xs">
-                                    <span className="font-bold font-mono text-[10.5px] text-[#0f766e]">{formatRupiah(txn.itemPrice)}</span>
-                                    <p className="text-[9px] text-gray-400">Pembayaran Berhasil Aman 🔒</p>
-                                  </div>
-                                </div>
-
-                                {/* Form settings: Change Indonesian Expedisi and customize resi */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  
-                                  {/* Expedisi selection */}
-                                  <div className="space-y-1.5 text-xs text-left">
-                                    <label className="font-bold text-gray-750 dark:text-neutral-300">Ganti Ekspedisi Pengiriman Indonesia:</label>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                      {['SiCepat Ekspres', 'J&T Express', 'JNE Express', 'Pos Indonesia', 'GoSend Instant'].map((exp) => (
-                                        <button
-                                          key={exp}
-                                          disabled={isProcessing}
-                                          onClick={() => {
-                                            setTransactions(prev =>
-                                              prev.map(t => {
-                                                if (t.id === txn.id) {
-                                                  return {
-                                                    ...t,
-                                                    expedition: exp as any,
-                                                    trackingLogs: [
-                                                      ...t.trackingLogs,
-                                                      {
-                                                        time: 'Baru saja',
-                                                        statusText: 'Perubahan Kurir Pengiriman',
-                                                        note: `Admin mengubah kurir ekspedisi dari ${t.expedition} ke armada ${exp}.`
-                                                      }
-                                                    ]
-                                                  };
-                                                }
-                                                return t;
-                                              })
-                                            );
-                                          }}
-                                          className={`px-2.5 py-1 text-[9.5px] font-bold rounded-lg cursor-pointer transition-colors disabled:opacity-40 ${
-                                            txn.expedition === exp
-                                              ? 'bg-amber-500 text-white shadow-xs'
-                                              : 'bg-white dark:bg-neutral-900 text-gray-600 dark:text-neutral-400 border border-gray-150 dark:border-neutral-850 hover:bg-gray-100'
-                                          }`}
-                                        >
-                                          {exp.split(' ')[0]} {/* shortened */}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {/* Resi manual override */}
-                                  <div className="space-y-1.5 text-xs text-left">
-                                    <label className="font-bold text-gray-750 dark:text-neutral-300">Kustomisasi No. Resi Pengiriman (Realtime tracking):</label>
-                                    <div className="flex gap-2">
-                                      <input 
-                                        type="text"
-                                        disabled={isProcessing}
-                                        value={txn.receiptNumber}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          setTransactions(prev =>
-                                            prev.map(t => {
-                                              if (t.id === txn.id) {
-                                                return { ...t, receiptNumber: val };
-                                              }
-                                              return t;
-                                            })
-                                          );
-                                        }}
-                                        className="flex-1 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500"
-                                      />
-                                      <button 
-                                        onClick={() => {
-                                          const rand = 'IDN' + Math.floor(100000000000 + Math.random() * 900000000000);
-                                          setTransactions(prev =>
-                                            prev.map(t => {
-                                              if (t.id === txn.id) {
-                                                return { ...t, receiptNumber: rand };
-                                              }
-                                              return t;
-                                            })
-                                          );
-                                        }}
-                                        className="px-2.5 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-neutral-800 dark:text-neutral-300 rounded-xl font-bold"
-                                      >
-                                        Acak
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                </div>
-
-                                {/* Administrative Actions & Simulation trigger loops */}
-                                <div className="pt-3 border-t border-gray-250/50 dark:border-neutral-850 flex flex-wrap items-center justify-between text-xs gap-3">
-                                  <div className="space-y-1 text-xs">
-                                    <p className="font-bold text-gray-700 dark:text-neutral-400">Kontrol Simulasi Pengiriman:</p>
-                                    <p className="text-[9px] text-gray-400">Simulasikan kedatangan armada kurir dari pickup ke sorting hub kota hingga mendarat di alamat penerima.</p>
-                                  </div>
-
-                                  <div className="flex gap-2 items-center flex-wrap">
-                                    
-                                    {/* Action button: Simulator progress tracking */}
-                                    <button
-                                      onClick={() => handleSimulateTransitProgress(txn.id)}
-                                      disabled={isProcessing || txn.paymentStatus === 'delivered'}
-                                      className={`px-4 py-2.5 rounded-xl font-extrabold text-[10.5px] cursor-pointer flex items-center gap-1 text-white shadow-md disabled:opacity-40 transition-transform active:scale-95 ${
-                                        txn.paymentStatus === 'delivered'
-                                          ? 'bg-emerald-500 hover:bg-emerald-500'
-                                          : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-650'
-                                      }`}
-                                    >
-                                      {isProcessing ? (
-                                        <>
-                                          <RefreshCw className="h-4 w-4 animate-spin" />
-                                          Sedang Mengirim Kurir Real-time...
-                                        </>
-                                      ) : txn.paymentStatus === 'delivered' ? (
-                                        '✓ Pengiriman Selesai Terkirim'
-                                      ) : (
-                                        <>
-                                          <Truck className="h-4 w-4" />
-                                          Simulasikan Pengantaran Real-time ⚡
-                                        </>
-                                      )}
-                                    </button>
-
-                                    {/* Action button: Manual update finished */}
-                                    {txn.paymentStatus !== 'delivered' && (
-                                      <button
-                                        disabled={isProcessing}
-                                        onClick={() => {
-                                          setTransactions(prev =>
-                                            prev.map(t => {
-                                              if (t.id === txn.id) {
-                                                return {
-                                                  ...t,
-                                                  paymentStatus: 'delivered',
-                                                  currentTrackingStepIndex: 5,
-                                                  trackingLogs: [
-                                                    ...t.trackingLogs,
-                                                    {
-                                                      time: 'Baru saja',
-                                                      statusText: 'Dipaksa Selesai (Admin Force Delivered)',
-                                                      note: 'Admin melakukan force-complete pengiriman barang di database PT Idebagus.'
-                                                    }
-                                                  ]
-                                                };
-                                              }
-                                              return t;
-                                            })
-                                          );
-                                        }}
-                                        className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-xl font-extrabold text-[10.5px] cursor-pointer transition-colors"
-                                      >
-                                        Selesaikan Instan (Sukses)
-                                      </button>
-                                    )}
-
-                                    {/* Action button: Cancel */}
-                                    <button
-                                      disabled={isProcessing}
-                                      onClick={() => {
-                                        setTransactions(prev =>
-                                          prev.map(t => {
-                                            if (t.id === txn.id) {
-                                              return {
-                                                ...t,
-                                                paymentStatus: 'cancelled',
-                                                trackingLogs: [
-                                                  ...t.trackingLogs,
-                                                  {
-                                                    time: 'Baru saja',
-                                                    statusText: 'Transaksi Dibatalkan (Escrow Refunded)',
-                                                    note: 'Admin membatalkan transaksi ini. Pembayaran sepenuhnya dikembalikan ke e-wallet Pembeli.'
-                                                  }
-                                                ]
-                                              };
-                                            }
-                                            return t;
-                                          })
-                                        );
-                                      }}
-                                      className="px-3 py-2.5 hover:bg-rose-50 dark:hover:bg-rose-950/25 text-rose-500 rounded-xl font-bold text-[10.5px]"
-                                    >
-                                      Batalkan Trx
-                                    </button>
-
-                                  </div>
-                                </div>
-
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Immersion Lightbox Modal detail popup overlay */}
+                {viewListingId && (() => {
+                  const targetProduct = marketplaceItems.find(i => i.id === viewListingId);
+                  return targetProduct ? (
+                    <MarketplaceDetail
+                      item={targetProduct}
+                      onClose={() => setViewListingId(null)}
+                      onContactSeller={handleContactSeller}
+                    />
+                  ) : null;
+                })()}
 
               </div>
+            )}
+
+            {/* --- TAB: CHAT MESSAGES PANEL --- */}
+            {activeTab === 'chat' && (
+              <MessageChatBox
+                currentUserId={currentUser.id}
+                friends={friends}
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                onSimulateReply={handleSimulateReply}
+                activeChatFriendId={activeChatFriendId}
+                setActiveChatFriendId={setActiveChatFriendId}
+                onDeleteMessages={handleDeleteMessages}
+              />
+            )}
+
+            {/* --- TAB: PROFILE SETTINGS SYNC --- */}
+            {activeTab === 'profile' && (
+              <ProfileEditTab
+                currentUser={currentUser}
+                onUpdateUser={setCurrentUser}
+              />
             )}
 
           </main>

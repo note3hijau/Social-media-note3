@@ -1,5 +1,5 @@
 import { Bell, MessageSquare, Search, Sun, Moon, Users, ShoppingBag, Plus, Sparkles, Check } from 'lucide-react';
-import { User, AppNotification, FriendRequest } from '../types';
+import { User, AppNotification, FriendRequest, Friend } from '../types';
 import { useState } from 'react';
 
 interface HeaderProps {
@@ -16,6 +16,10 @@ interface HeaderProps {
   unreadCount: number;
   unreadMessagesCount: number;
   onNotificationClick: (notif: AppNotification) => void;
+  friends: Friend[];
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  setActiveChatFriendId: (id: string | null) => void;
 }
 
 export default function Header({
@@ -32,10 +36,14 @@ export default function Header({
   unreadCount,
   unreadMessagesCount,
   onNotificationClick,
+  friends,
+  searchQuery,
+  setSearchQuery,
+  setActiveChatFriendId,
 }: HeaderProps) {
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
 
   const pendingRequests = friendRequests.filter(r => r.status === 'pending');
 
@@ -63,7 +71,7 @@ export default function Header({
           </button>
 
           {/* Search bar desktop */}
-          <div className="relative hidden md:block w-70 ml-4">
+          <div className="relative hidden md:block w-72 ml-4">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-4 w-4 text-slate-400" />
             </div>
@@ -71,9 +79,56 @@ export default function Header({
               type="text"
               placeholder="Cari ide, barang, & teman..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestionsDropdown(true);
+              }}
+              onFocus={() => setShowSuggestionsDropdown(true)}
               className="w-full rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-900 py-1.5 pl-10 pr-4 text-sm text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-950 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all"
             />
+
+            {/* Suggestions list popup */}
+            {showSuggestionsDropdown && searchQuery.trim().length > 0 && (() => {
+              const matches = friends.filter(f => 
+                f.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              if (matches.length === 0) return null;
+              return (
+                <div className="absolute top-11 left-0 w-full bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-2xl shadow-xl z-50 overflow-hidden text-left py-1 animate-slide-in">
+                  <div className="px-3 py-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 bg-gray-50/40 dark:bg-neutral-900/40 border-b border-gray-100 dark:border-neutral-800">
+                    Saran Pengguna (Nama yang anda ketik)
+                  </div>
+                  {matches.slice(0, 5).map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => {
+                        setSearchQuery(f.displayName);
+                        setActiveTab('chat');
+                        setActiveChatFriendId(f.id);
+                        setShowSuggestionsDropdown(false);
+                      }}
+                      className="w-full px-3.5 py-2 hover:bg-emerald-50/20 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="relative">
+                          <img src={f.avatar} alt={f.displayName} className="h-7 w-7 rounded-full object-cover border border-emerald-500/10" />
+                          <span className={`absolute bottom-0 right-0 block h-2 w-2 rounded-full ${f.isOnline ? 'bg-emerald-500' : 'bg-gray-400'} ring-1 ring-white dark:ring-neutral-900`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-slate-800 dark:text-gray-100 truncate">{f.displayName}</p>
+                          <p className="text-[10px] text-gray-450 truncate">ID: {f.id}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase text-center px-2 py-0.5 rounded-sm shrink-0 ${
+                        f.isOnline ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30' : 'bg-gray-50 text-gray-400 dark:bg-neutral-800/40'
+                      }`}>
+                        {f.isOnline ? 'ONLINE' : 'OFFLINE'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

@@ -1,22 +1,14 @@
-import { useState } from 'react';
+import React from 'react';
 import { MarketplaceItem } from '../types';
-import { ShoppingCart, Heart, ShieldCheck, MapPin, BadgeCheck, X, QrCode, CreditCard, CheckCircle2, Copy, Sparkles, Loader2, ArrowRight } from 'lucide-react';
+import { X, MapPin, BadgeCheck, MessageSquare } from 'lucide-react';
 
 interface MarketplaceDetailProps {
   item: MarketplaceItem;
   onClose: () => void;
-  onBuySuccess: (itemId: string, method: 'qris' | 'gopay' | 'ovo' | 'va_bca') => void;
+  onContactSeller?: (item: MarketplaceItem) => void;
 }
 
-export default function MarketplaceDetail({ item, onClose, onBuySuccess }: MarketplaceDetailProps) {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'qris' | 'gopay' | 'ovo' | 'va_bca'>('qris');
-  const [paymentStep, setPaymentStep] = useState<'selecting' | 'paying' | 'success'>('selecting');
-  
-  const [phoneNo, setPhoneNo] = useState('081234567890');
-  const [copiedVa, setCopiedVa] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-
+export default function MarketplaceDetail({ item, onClose, onContactSeller }: MarketplaceDetailProps) {
   // Formatting currency in Clean IDR (Indonesian Rupiah)
   const formatRupiah = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -26,127 +18,122 @@ export default function MarketplaceDetail({ item, onClose, onBuySuccess }: Marke
     }).format(value);
   };
 
-  const virtualAccountNo = '80777' + phoneNo.slice(-7);
-
-  const handleCopyVa = () => {
-    navigator.clipboard.writeText(virtualAccountNo);
-    setCopiedVa(true);
-    setTimeout(() => setCopiedVa(false), 2000);
-  };
-
-  const triggerPaymentSubmit = () => {
-    setIsProcessingPayment(true);
-    setTimeout(() => {
-      setIsProcessingPayment(false);
-      setPaymentStep('success');
-    }, 2000); // 2 second mock secure verification
-  };
-
-  const handleCompleteTransaction = () => {
-    onBuySuccess(item.id, paymentMethod);
-    setShowPaymentModal(false);
-    onClose();
-  };
-
   return (
-    <>
-      {/* Outer detail container */}
-      <div className="bg-white dark:bg-[#1e293b] border border-gray-150 dark:border-slate-800 rounded-3xl overflow-hidden shadow-2xs">
-        
+    <div 
+      className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-[999]"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl relative animate-scale-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top-right close button */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors cursor-pointer"
+          title="Tutup Detail"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
         {/* Responsive layout Grid split */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2">
           
-          {/* Left Area: Product Image */}
-          <div className="relative h-64 md:h-[400px] bg-gray-100 dark:bg-slate-900 flex items-center justify-center">
+          {/* Left Area: Product Image Lightbox View */}
+          <div className="relative h-64 md:h-[480px] bg-neutral-950 flex items-center justify-center overflow-hidden group">
             <img 
               src={item.image} 
               alt={item.title} 
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain cursor-zoom-in transition-transform duration-300 hover:scale-105"
             />
             {/* Tag region */}
-            <span className="absolute top-4 left-4 bg-blue-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-sm shadow-md">
-              Maju Bersama UMKM
-            </span>
-            <span className="absolute top-4 right-4 bg-black/60 text-white font-bold text-[10px] px-2.5 py-1 rounded-full backdrop-blur-md">
-              Kondisi: {item.condition}
+            <span className="absolute bottom-4 left-4 bg-emerald-600 text-white font-extrabold text-[10px] uppercase tracking-wider px-3 py-1 rounded-md shadow-lg">
+              Pasar Masyarakat Lokal 🇲🇨
             </span>
           </div>
 
-          {/* Right Area: Product details / Actions */}
-          <div className="p-6 flex flex-col justify-between">
-            <div className="space-y-4">
+          {/* Right Area: Product details - Simple Display only */}
+          <div className="p-6 md:p-8 flex flex-col justify-between h-full md:max-h-[480px] overflow-y-auto scrollbar-thin text-left bg-gray-50 dark:bg-neutral-900">
+            <div className="space-y-5">
               
-              {/* Breadcrumbs / Category */}
-              <div className="flex justify-between items-center text-[10px] font-bold tracking-wider text-blue-600 dark:text-blue-400 uppercase">
-                <span>Kategori: {item.category}</span>
-                <button 
-                  onClick={onClose}
-                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-gray-650 transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+              {/* Silver Styled Title Tag / Header Section */}
+              <div className="p-2.5 rounded-xl bg-slate-700 dark:bg-slate-800 border border-slate-600 text-slate-200 flex justify-between items-center">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#e2e8f0]">
+                  Kategori • {item.category}
+                </span>
+                <span className="text-[9px] font-black text-[#e2e8f0] bg-emerald-600 px-2 py-0.5 rounded">
+                  KONDISI: {item.condition.toUpperCase()}
+                </span>
               </div>
 
-              {/* Title & Price */}
-              <div>
-                <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white leading-snug">
+              {/* Title Header: styled with silver text as requested */}
+              <div className="p-4 rounded-xl bg-slate-800 border border-slate-700 text-slate-100">
+                <h1 className="text-lg md:text-xl font-extrabold text-[#f1f5f9] tracking-tight leading-snug">
                   {item.title}
                 </h1>
-                <p className="text-2xl md:text-3xl font-extrabold text-blue-605 dark:text-blue-500 mt-2">
+                <p className="text-xl md:text-2xl font-black text-emerald-400 mt-2">
                   {formatRupiah(item.price)}
                 </p>
               </div>
 
               {/* Location Tag */}
-              <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+              <div className="flex items-center gap-1.5 text-xs text-slate-505 dark:text-neutral-400 pl-1">
                 <MapPin className="h-4 w-4 text-rose-500 shrink-0" />
-                <span>{item.location} • Indonesia Region</span>
+                <span>{item.location} • Indonesia</span>
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-gray-100 dark:border-slate-800/80 my-3" />
-
-              {/* Description body */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-                  Deskripsi Barang
+              {/* Description body / Isi Iklan */}
+              <div className="space-y-1.5">
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">
+                  Isi Deskripsi Iklan
                 </h3>
-                <p className="text-xs text-gray-600 dark:text-neutral-300 leading-relaxed whitespace-pre-line">
-                  {item.description}
-                </p>
+                <div className="p-4 rounded-2xl bg-white dark:bg-neutral-950 border border-gray-150 dark:border-neutral-800">
+                  <p className="text-xs text-gray-700 dark:text-neutral-200 leading-relaxed whitespace-pre-line font-medium">
+                    {item.description}
+                  </p>
+                </div>
               </div>
 
-              {/* Seller details widget */}
-              <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-2xl flex items-center justify-between border border-gray-150/50 dark:border-slate-800">
-                <div className="flex items-center gap-3">
+              {/* Seller info widget */}
+              <div className="bg-white dark:bg-neutral-950 p-3.5 rounded-2xl flex items-center justify-between border border-gray-150 dark:border-neutral-805">
+                <div className="flex items-center gap-2.5">
                   <img 
                     src={item.sellerAvatar} 
                     alt={item.sellerName} 
-                    className="h-10 w-10 rounded-full object-cover ring-2 ring-blue-500"
+                    className="h-9 w-9 rounded-full object-cover ring-2 ring-emerald-500"
                   />
                   <div>
-                    <h4 className="font-bold text-xs text-gray-900 dark:text-white flex items-center gap-1">
+                    <h4 className="font-bold text-xs text-gray-950 dark:text-white flex items-center gap-1">
                       {item.sellerName}
-                      <BadgeCheck className="h-4.5 w-4.5 text-blue-500 fill-blue-50" />
+                      <BadgeCheck className="h-4 w-4 text-emerald-500" />
                     </h4>
-                    <p className="text-[10px] text-gray-500">Penjual Terbuka • Respon Cepat</p>
+                    <p className="text-[9px] text-gray-500">Pemilik / Penjual Iklan</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-955/40 px-2 py-1 rounded-full shrink-0">
-                  Rating: 4.9/5.0
+                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 px-2 py-1 rounded-full shrink-0">
+                  Respon Cepat ⚡
                 </span>
               </div>
 
             </div>
 
-            {/* Buying action CTA */}
-            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800 flex items-center gap-3">
+             {/* Close & Action footer buttons */}
+            <div className="pt-4 mt-6 border-t border-gray-150 dark:border-neutral-800 space-y-2">
+              {onContactSeller && (
+                <button 
+                  onClick={() => onContactSeller(item)}
+                  className="w-full py-3 bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs transition-all cursor-pointer text-center flex items-center justify-center gap-2 shadow-md animate-pulse"
+                >
+                  <MessageSquare className="h-4.5 w-4.5" />
+                  Kirim Pesan Hubungi Saya (Inbox Marketplace)
+                </button>
+              )}
+              
               <button 
-                onClick={() => setShowPaymentModal(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-2xl text-xs transition-colors cursor-pointer shadow-md"
+                onClick={onClose}
+                className="w-full py-2.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-800 dark:text-gray-200 font-bold rounded-xl text-xs transition-colors cursor-pointer text-center"
               >
-                <ShoppingCart className="h-4.5 w-4.5" />
-                Beli Produk Sekarang (Bayar Aman)
+                Kembali ke Daftar Iklan
               </button>
             </div>
 
@@ -155,274 +142,6 @@ export default function MarketplaceDetail({ item, onClose, onBuySuccess }: Marke
         </div>
 
       </div>
-
-      {/* Interactive Payment Gateway modal Simulation */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-[#1e293b] border border-gray-100 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden">
-            
-            {/* Header / Cost outline */}
-            <div className="flex justify-between items-start pb-4 border-b border-gray-100 dark:border-slate-800 mb-4">
-              <div>
-                <h3 className="font-extrabold text-sm text-gray-900 dark:text-white uppercase tracking-wider">
-                  Gerbang Pembayaran Aman
-                </h3>
-                <p className="text-[10px] text-blue-500 font-semibold mt-0.5">Sistem Integrasi idebagus Mid-Secure 🛡️</p>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setPaymentStep('selecting');
-                }}
-                className="p-1 rounded-full hover:bg-gray-150 text-gray-400"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Step: Selecting payment method / checkout data */}
-            {paymentStep === 'selecting' && (
-              <div className="space-y-4">
-                
-                {/* Product quick summary info row */}
-                <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-900 p-3 rounded-xl border border-gray-150 dark:border-slate-800 text-xs">
-                  <span className="font-semibold text-gray-700 dark:text-neutral-300 truncate max-w-[200px]">
-                    {item.title}
-                  </span>
-                  <span className="font-bold text-blue-650 dark:text-blue-400 shrink-0">
-                    {formatRupiah(item.price)}
-                  </span>
-                </div>
-
-                {/* Subtitle instructions */}
-                <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-relaxed mb-2">
-                  Metode pembayaran lokal Indonesia terlengkap. Transaksi dijamin aman oleh escrow PT Ide Bagus Indonesia.
-                </p>
-
-                {/* Grid list of methods */}
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setPaymentMethod('qris')}
-                    className={`w-full p-3 rounded-2xl border flex items-center justify-between text-left transition-all cursor-pointer ${
-                      paymentMethod === 'qris'
-                        ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-950/20'
-                        : 'border-gray-200 dark:border-slate-800 hover:bg-gray-55 dark:hover:bg-slate-900/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <QrCode className="h-5 w-5 text-blue-500" />
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">QRIS (Gopay/OVO/Dana/LinkAja)</p>
-                        <p className="text-[9px] text-gray-400">Scan QR Code dan bayar otomatis</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('gopay')}
-                    className={`w-full p-3 rounded-2xl border flex items-center justify-between text-left transition-all cursor-pointer ${
-                      paymentMethod === 'gopay'
-                        ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-950/20'
-                        : 'border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-blue-500" />
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">GoPay Instant</p>
-                        <p className="text-[9px] text-gray-400">Konfirmasi via aplikasi Gojek</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('ovo')}
-                    className={`w-full p-3 rounded-2xl border flex items-center justify-between text-left transition-all cursor-pointer ${
-                      paymentMethod === 'ovo'
-                        ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-950/20'
-                        : 'border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-purple-600" />
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">OVO Cash Payment</p>
-                        <p className="text-[9px] text-gray-400">Verifikasi instan via nomer OVO</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('va_bca')}
-                    className={`w-full p-3 rounded-2xl border flex items-center justify-between text-left transition-all cursor-pointer ${
-                      paymentMethod === 'va_bca'
-                        ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-950/20'
-                        : 'border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-blue-800" />
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">BCA Virtual Account</p>
-                        <p className="text-[9px] text-gray-400">Transfer manual dari m-BCA/ATM</p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Continue button */}
-                <button
-                  onClick={() => setPaymentStep('paying')}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-550 text-white font-extrabold text-xs rounded-2xl mt-4 cursor-pointer flex items-center justify-center gap-2 shadow-md"
-                >
-                  Lanjut ke Pembayaran
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-
-              </div>
-            )}
-
-            {/* Step: Paying details (Dynamic depending on method) */}
-            {paymentStep === 'paying' && (
-              <div className="space-y-4">
-                         {paymentMethod === 'qris' && (
-                  <div className="text-center space-y-3">
-                    <p className="text-xs font-semibold text-gray-600 dark:text-slate-350">Scan QRIS Nasional dengan e-Wallet favorit Anda</p>
-                    
-                    {/* Unique high contrast visual barcode mock */}
-                    <div className="mx-auto w-52 h-52 bg-slate-50 dark:bg-slate-900 border-4 border-blue-500/25 p-3 rounded-2xl flex items-center justify-center shadow-inner relative">
-                      <div className="grid grid-cols-4 gap-1.5 w-full h-full p-1 border bg-white border-dashed border-gray-155">
-                        <div className="h-8 w-8 bg-black rounded-xs"></div>
-                        <div className="h-8 w-8 bg-black rounded-xs col-start-4"></div>
-                        <div className="col-span-4 flex items-center justify-center py-2">
-                          <span className="font-extrabold text-lg text-blue-600 tracking-widest font-mono">
-                            QRIS
-                          </span>
-                        </div>
-                        <div className="h-8 w-8 bg-black rounded-xs row-start-4"></div>
-                        <div className="h-8 w-8 bg-black rounded-xs row-start-4 col-start-4"></div>
-                      </div>
-                      
-                      {/* Floating QR center seal */}
-                      <span className="absolute bg-blue-600 text-white font-black text-[9px] px-1 py-0.5 rounded-sm shadow-md">
-                        idebagus
-                      </span>
-                    </div>
-
-                    <div className="text-[10px] text-gray-400">
-                      Merchant: <span className="font-bold text-gray-700 dark:text-slate-300">idebagus.com Local Escrow</span>
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod === 'gopay' && (
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold text-gray-600 dark:text-slate-350">Masukkan nomor Hanphone Gojek Anda:</p>
-                    <input 
-                      type="text" 
-                      value={phoneNo}
-                      onChange={(e) => setPhoneNo(e.target.value)}
-                      className="w-full rounded-xl border border-gray-205 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs focus:ring-1 focus:ring-blue-500"
-                    />
-                    <p className="text-[10px] text-gray-400">Saldo GoPay Anda akan dipotong setelah memasukkan pin di m-Gojek.</p>
-                  </div>
-                )}
-
-                {paymentMethod === 'ovo' && (
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold text-gray-600 dark:text-slate-350">Masukkan nomor handphone akun OVO Anda:</p>
-                    <input 
-                      type="text" 
-                      value={phoneNo}
-                      onChange={(e) => setPhoneNo(e.target.value)}
-                      className="w-full rounded-xl border border-gray-205 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2.5 text-xs focus:ring-1 focus:ring-blue-500"
-                    />
-                    <p className="text-[10px] text-gray-400">Notifikasi verifikasi pembayaran akan dikirimkan langsung ke aplikasi OVO.</p>
-                  </div>
-                )}
-
-                {paymentMethod === 'va_bca' && (
-                  <div className="space-y-3 bg-gray-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-gray-150 dark:border-slate-800">
-                    <p className="text-xs font-bold text-gray-700 dark:text-slate-200">Nomor BCA Virtual Account:</p>
-                    
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-200 dark:border-slate-800">
-                      <span className="font-mono font-bold text-sm tracking-widest text-[#005c93] dark:text-[#38bdf8]">
-                        {virtualAccountNo}
-                      </span>
-                      <button
-                        onClick={handleCopyVa}
-                        className="p-1 rounded-lg hover:bg-gray-100 text-blue-500 shrink-0 flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
-                      >
-                        <Copy className="h-4 w-4" />
-                        {copiedVa ? 'Kopied!' : 'Salin'}
-                      </button>
-                    </div>
-
-                    <div className="text-[10px] text-gray-400 space-y-1">
-                      <p>1. Salin nomor Virtual Account di atas</p>
-                      <p>2. Buka m-BCA, pilih m-Transfer &gt; BCA Virtual Account</p>
-                      <p>3. Tempel nomor dan masukkan nominal pembayaran</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Confirm secure button / simulation triggers */}
-                <div className="pt-4 border-t border-gray-100 dark:border-slate-800 font-sans">
-                  <button
-                    onClick={triggerPaymentSubmit}
-                    disabled={isProcessingPayment}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    {isProcessingPayment ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Menghubungkan ke Saluran Perbankan...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="h-4 w-4" />
-                        Saya Sudah Menyelesaikan Pembayaran
-                      </>
-                    )}
-                  </button>
-                </div>
-
-              </div>
-            )}
-
-            {/* Step: Payment success */}
-            {paymentStep === 'success' && (
-              <div className="text-center py-6 space-y-4">
-                <div className="h-16 w-16 rounded-full bg-blue-105 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center mx-auto scale-110">
-                  <CheckCircle2 className="h-10 w-10 fill-blue-50" />
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-extrabold text-gray-950 dark:text-white">
-                    Pembaruan Berhasil!
-                  </h3>
-                  <p className="text-xs text-blue-600 font-bold mt-1">
-                    Midtrans Escrow Verified 🇲🇨
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 max-w-sm mx-auto mt-2 leading-relaxed">
-                    Dana sebesar <span className="font-semibold text-gray-800 dark:text-white">{formatRupiah(item.price)}</span> aman! Penjual <span className="font-semibold">{item.sellerName}</span> segera diberitahu untuk mengirimkan barang ke tujuan Anda.
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
-                  <button
-                    onClick={handleCompleteTransaction}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-2xl cursor-pointer shadow-md"
-                  >
-                    Selesaikan Transaksi & Kembali
-                  </button>
-                </div>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

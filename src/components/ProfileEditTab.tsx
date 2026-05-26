@@ -19,6 +19,45 @@ export default function ProfileEditTab({ currentUser, onUpdateUser }: ProfileEdi
   const [syncMessage, setSyncMessage] = useState('Semua pengaturan profil tersinkronisasi');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  const [isDragging, setIsDragging] = useState(false);
+  const [startY, setStartY] = useState(0);
+  const [startPos, setStartPos] = useState(bannerPosition);
+
+  // Drag handles
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).closest('label') || (e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    setStartY(e.clientY);
+    setStartPos(bannerPosition);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const deltaY = e.clientY - startY;
+    // Map vertical pixels dragged to 0%-100% position offsets
+    const newPos = Math.max(0, Math.min(100, startPos - Math.round(deltaY / 2)));
+    setBannerPosition(newPos);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).closest('label') || (e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    setStartY(e.touches[0].clientY);
+    setStartPos(bannerPosition);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const deltaY = e.touches[0].clientY - startY;
+    const newPos = Math.max(0, Math.min(100, startPos - Math.round(deltaY / 2)));
+    setBannerPosition(newPos);
+  };
+
   const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -26,7 +65,7 @@ export default function ProfileEditTab({ currentUser, onUpdateUser }: ProfileEdi
     setUploadProgress(0);
     let progress = 0;
     const interval = setInterval(() => {
-      progress += 10;
+      progress += 20;
       if (progress >= 100) {
         clearInterval(interval);
         setUploadProgress(100);
@@ -34,11 +73,33 @@ export default function ProfileEditTab({ currentUser, onUpdateUser }: ProfileEdi
         setBanner(objectUrl);
         setTimeout(() => {
           setUploadProgress(null);
-        }, 1200);
+        }, 800);
       } else {
         setUploadProgress(progress);
       }
-    }, 120);
+    }, 80);
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadProgress(0);
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 20;
+      if (progress >= 100) {
+        clearInterval(interval);
+        setUploadProgress(100);
+        const objectUrl = URL.createObjectURL(file);
+        setAvatar(objectUrl);
+        setTimeout(() => {
+          setUploadProgress(null);
+        }, 800);
+      } else {
+        setUploadProgress(progress);
+      }
+    }, 80);
   };
 
   // Multi-device sync handler
@@ -66,22 +127,6 @@ export default function ProfileEditTab({ currentUser, onUpdateUser }: ProfileEdi
     triggerSync(updated);
   };
 
-  // Curated Indonesian scenic banners for instant editing
-  const presets = [
-    { name: 'Pantai Kuta Bali', url: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&auto=format&fit=crop&q=80' },
-    { name: 'Candi Borobudur Magelang', url: 'https://images.unsplash.com/photo-1584810359583-96fc3448beaa?w=800&auto=format&fit=crop&q=80' },
-    { name: 'Gunung Bromo Jawa Timur', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80' },
-    { name: 'Hutan Hujan Kalimantan', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&auto=format&fit=crop&q=80' },
-  ];
-
-  // Curated minimalist avatars
-  const avatarPresets = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  ];
-
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20">
       
@@ -90,37 +135,78 @@ export default function ProfileEditTab({ currentUser, onUpdateUser }: ProfileEdi
         
         {/* Banner with adjustable Y alignment */}
         <div 
-          className="relative h-48 md:h-60 bg-gray-200 dark:bg-neutral-800 transition-all duration-150 overflow-hidden"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleMouseUp}
+          className="relative h-48 md:h-60 bg-gray-200 dark:bg-neutral-800 transition-all duration-75 overflow-hidden select-none"
           style={{
             backgroundImage: `url(${banner})`,
             backgroundPosition: `50% ${bannerPosition}%`,
             backgroundSize: 'cover',
             backgroundRepeat: 'no-repeat',
+            cursor: isDragging ? 'grabbing' : 'grab',
           }}
+          title="Geser gambar untuk atur tata letak"
         >
           {/* Overlay gradient */}
-          <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
           
           {/* Tag region */}
-          <span className="absolute top-4 left-4 bg-emerald-500/90 text-white font-extrabold text-[9px] uppercase px-2 py-1 rounded-md tracking-wider flex items-center gap-1 shadow-sm">
+          <span className="absolute top-4 left-4 bg-emerald-500/90 text-white font-extrabold text-[9px] uppercase px-2 py-1 rounded-md tracking-wider flex items-center gap-1 shadow-sm pointer-events-none">
             <Globe className="h-3 w-3" />
             REGIONAL INDONESIA
           </span>
+
+          {/* Facebook-style layout adjustment advice */}
+          <div className="absolute top-4 right-16 bg-black/50 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs flex items-center gap-1.5 shadow-xs pointer-events-none select-none border border-white/5">
+            <Sliders className="h-3 w-3 text-emerald-400" />
+            <span>Tarik / geser manual foto untuk atur posisi sampul</span>
+          </div>
+
+          {/* Upload Banner Icon overlaid precisely over background cover */}
+          <label className="absolute bottom-4 right-4 bg-black/60 hover:bg-black/85 text-white p-2.5 rounded-full backdrop-blur-xs cursor-pointer transition-all z-10 flex items-center justify-center border border-white/10 shadow-lg" title="Ganti Foto Sampul (Banner)">
+            <Camera className="h-4.5 w-4.5" />
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleBannerUpload}
+            />
+          </label>
+
+          {/* Upload indicator */}
+          {uploadProgress !== null && (
+            <div className="absolute top-4 right-4 bg-emerald-600/90 text-white font-bold text-[10px] px-3 py-1.5 rounded-full backdrop-blur-xs flex items-center gap-1.5 shadow-md pointer-events-none">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              Mengunggah... {uploadProgress}%
+            </div>
+          )}
         </div>
 
         {/* Profile Identity Details Card Offset */}
         <div className="px-6 pb-6 pt-1 flex flex-col items-center sm:items-start sm:flex-row gap-4 relative">
           
-          {/* Large Avatar container */}
+          {/* Large Avatar container overlay */}
           <div className="-mt-16 sm:-mt-24 relative select-none shrink-0 group">
             <img 
               src={avatar} 
               alt={displayName} 
               className="h-28 w-28 sm:h-32 sm:w-32 rounded-full object-cover ring-4 ring-white dark:ring-neutral-900 shadow-xl"
             />
-            <div className="absolute inset-0 bg-black/45 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all cursor-pointer">
+            {/* Fully working upload profile wrapper */}
+            <label className="absolute inset-0 bg-black/45 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all cursor-pointer">
               <Camera className="h-6 w-6 text-white" />
-            </div>
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleAvatarUpload}
+              />
+            </label>
           </div>
 
           <div className="flex-1 mt-2 text-center sm:text-left min-w-0">
@@ -148,196 +234,127 @@ export default function ProfileEditTab({ currentUser, onUpdateUser }: ProfileEdi
         </div>
       </div>
 
-      {/* Profile settings fields form */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Profile settings fields form taking full layout container */}
+      <div className="bg-white dark:bg-neutral-900 p-6 rounded-3xl border border-gray-150 dark:border-neutral-800 shadow-2xs space-y-4">
+        <h2 className="text-sm font-extrabold text-gray-950 dark:text-white uppercase tracking-wider border-b border-gray-100 dark:border-neutral-800 pb-3">
+          Informasi Profil Dasar
+        </h2>
 
-        {/* Left Side: Custom Layout Adjustments */}
-        <div className="space-y-6 md:col-span-1">
-          <div className="bg-white dark:bg-neutral-900 p-5 rounded-3xl border border-gray-150 dark:border-neutral-800 shadow-2xs space-y-4">
-            <h3 className="font-extrabold text-[11px] uppercase tracking-wider text-gray-450 dark:text-gray-400">
-              Preset Galeri Tampilan
-            </h3>
-
-            <div>
-              <label className="text-[11px] font-semibold text-gray-600 dark:text-neutral-400 block mb-2">
-                Pilih Banner Khas Indonesia
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {presets.map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setBanner(p.url)}
-                    className="group relative h-14 rounded-lg overflow-hidden border border-gray-200 select-none cursor-pointer hover:border-emerald-500"
-                    title={p.name}
-                  >
-                    <img 
-                      src={p.url} 
-                      alt={p.name} 
-                      className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-black/60 p-0.5 text-center text-[8px] text-white truncate">
-                      {p.name.split(' ')[0]}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100 dark:border-neutral-800/80 pt-4">
-              <label className="text-[11px] font-semibold text-gray-600 dark:text-neutral-400 block mb-2">
-                Ganti Foto Profil (Avatar)
-              </label>
-              <div className="flex gap-2 font-sans">
-                {avatarPresets.map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setAvatar(p)}
-                    className={`h-10 w-10 rounded-full overflow-hidden border cursor-pointer hover:border-emerald-500 shrink-0 ${
-                      avatar === p ? 'ring-2 ring-emerald-500 border-transparent' : 'border-gray-200'
-                    }`}
-                  >
-                    <img src={p} alt="Preset avatar" className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="space-y-4">
+          
+          {/* Display name */}
+          <div>
+            <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
+              Nama Lengkap
+            </label>
+            <input 
+              type="text" 
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition-all"
+              placeholder="Nama Lengkap Kamu"
+            />
           </div>
-        </div>
 
-        {/* Right Side: Core Input parameters */}
-        <div className="md:col-span-2 bg-white dark:bg-neutral-900 p-6 rounded-3xl border border-gray-150 dark:border-neutral-800 shadow-2xs space-y-4">
-          <h2 className="text-sm font-extrabold text-gray-950 dark:text-white uppercase tracking-wider border-b border-gray-100 dark:border-neutral-800 pb-3">
-            Informasi Profil Dasar
-          </h2>
-
-          <div className="space-y-4">
-            
-            {/* Display name */}
-            <div>
-              <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
-                Nama Lengkap
-              </label>
-              <input 
-                type="text" 
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition-all"
-                placeholder="Nama Lengkap Kamu"
-              />
-            </div>
-
-            {/* Custom Banner Image Upload with Progress Bar */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block">
-                Unggah Custom Banner Image (Upload)
-              </label>
-              
-              <div className="flex flex-col gap-3">
-                <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-neutral-805 rounded-2xl p-4 cursor-pointer hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors bg-gray-50/50 dark:bg-neutral-950/20 group">
-                  <div className="flex flex-col items-center justify-center space-y-1 text-center">
-                    <Upload className="h-6 w-6 text-gray-400 group-hover:text-emerald-500 transition-colors" />
-                    <p className="text-[11px] font-bold text-gray-700 dark:text-neutral-350">
-                      Pilih file gambar banner kamu
-                    </p>
-                    <p className="text-[9px] text-gray-400">
-                      Format PNG, JPG, atau WEBP (Maksimal 5MB)
-                    </p>
-                  </div>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    onChange={handleBannerUpload}
-                  />
-                </label>
-
-                {uploadProgress !== null && (
-                  <div className="space-y-1.5 p-3 bg-gray-50 dark:bg-neutral-950 border border-gray-150 dark:border-neutral-850 rounded-2xl animate-pulse">
-                    <div className="flex justify-between items-center text-[10px] font-bold text-gray-600 dark:text-neutral-400">
-                      <span className="flex items-center gap-1">
-                        <RefreshCw className="h-3 w-3 animate-spin text-emerald-500" />
-                        Sedang Mengunggah Gambar...
-                      </span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-neutral-800 h-2 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-150" 
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                
-                {banner && (
-                  <div className="text-[10px] text-gray-400 flex items-center gap-1.5 truncate bg-gray-50/50 dark:bg-neutral-950/40 p-2 rounded-xl border border-gray-150/40 dark:border-neutral-850/40">
-                    <Image className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                    <span className="truncate">URL Aktif: {banner}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Location (Indonesia focused region selector) */}
-            <div>
-              <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
-                Lokasi Domisili (Indonesia Region Focus)
-              </label>
-              <select
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition-all"
-              >
-                <option value="Jakarta Selatan, DKI Jakarta">Jakarta Selatan, DKI Jakarta</option>
-                <option value="Sleman, DI Yogyakarta">Sleman, DI Yogyakarta</option>
-                <option value="Bandung, Jawa Barat">Bandung, Jawa Barat</option>
-                <option value="Surabaya, Jawa Timur">Surabaya, Jawa Timur</option>
-                <option value="Medan, Sumatera Utara">Medan, Sumatera Utara</option>
-                <option value="Denpasar, Bali">Denpasar, Bali</option>
-                <option value="Makassar, Sulawesi Selatan">Makassar, Sulawesi Selatan</option>
-              </select>
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
-                Bio Singkat
-              </label>
-              <textarea 
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={4}
-                maxLength={200}
-                className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition-all leading-relaxed"
-                placeholder="Tuliskan pengalaman bisnis, hobi, atau apa saja tentang dirimu..."
-              />
-              <span className="text-[10px] text-gray-400 mt-1 block text-right">
-                Batas karakter: {bio.length}/200
-              </span>
-            </div>
-
-            {/* Save Buttons */}
-            <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-neutral-800">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSyncing}
-                className="flex items-center gap-1.5 px-6 py-3 bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold rounded-2xl text-xs transition-colors cursor-pointer shadow-md disabled:opacity-50"
-              >
-                {isSyncing ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Simpan & Sinkronisasikan Sekarang
-              </button>
-            </div>
-
+          {/* Location (Indonesia focused region selector) */}
+          <div>
+            <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
+              Lokasi Domisili (Indonesia Region Focus)
+            </label>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition-all scrollbar-thin"
+            >
+              <optgroup label="Pulau Jawa">
+                <option value="DKI Jakarta">DKI Jakarta</option>
+                <option value="Jawa Barat">Jawa Barat</option>
+                <option value="Jawa Tengah">Jawa Tengah</option>
+                <option value="DI Yogyakarta">DI Yogyakarta</option>
+                <option value="Jawa Timur">Jawa Timur</option>
+                <option value="Banten">Banten</option>
+              </optgroup>
+              <optgroup label="Pulau Sumatera">
+                <option value="Aceh">Aceh</option>
+                <option value="Sumatera Utara">Sumatera Utara</option>
+                <option value="Sumatera Barat">Sumatera Barat</option>
+                <option value="Riau">Riau</option>
+                <option value="Kepulauan Riau">Kepulauan Riau</option>
+                <option value="Jambi">Jambi</option>
+                <option value="Sumatera Selatan">Sumatera Selatan</option>
+                <option value="Kepulauan Bangka Belitung">Kepulauan Bangka Belitung</option>
+                <option value="Bengkulu">Bengkulu</option>
+                <option value="Lampung">Lampung</option>
+              </optgroup>
+              <optgroup label="Pulau Bali & Nusa Tenggara">
+                <option value="Bali">Bali</option>
+                <option value="Nusa Tenggara Barat (NTB)">Nusa Tenggara Barat (NTB)</option>
+                <option value="Nusa Tenggara Timur (NTT)">Nusa Tenggara Timur (NTT)</option>
+              </optgroup>
+              <optgroup label="Pulau Kalimantan">
+                <option value="Kalimantan Barat">Kalimantan Barat</option>
+                <option value="Kalimantan Tengah">Kalimantan Tengah</option>
+                <option value="Kalimantan Selatan">Kalimantan Selatan</option>
+                <option value="Kalimantan Timur">Kalimantan Timur</option>
+                <option value="Kalimantan Utara">Kalimantan Utara</option>
+              </optgroup>
+              <optgroup label="Pulau Sulawesi">
+                <option value="Sulawesi Utara">Sulawesi Utara</option>
+                <option value="Gorontalo">Gorontalo</option>
+                <option value="Sulawesi Tengah">Sulawesi Tengah</option>
+                <option value="Sulawesi Barat">Sulawesi Barat</option>
+                <option value="Sulawesi Selatan">Sulawesi Selatan</option>
+                <option value="Sulawesi Tenggara">Sulawesi Tenggara</option>
+              </optgroup>
+              <optgroup label="Kepulauan Maluku & Pulau Papua">
+                <option value="Maluku">Maluku</option>
+                <option value="Maluku Utara">Maluku Utara</option>
+                <option value="Papua">Papua</option>
+                <option value="Papua Barat">Papua Barat</option>
+                <option value="Papua Selatan">Papua Selatan</option>
+                <option value="Papua Tengah">Papua Tengah</option>
+                <option value="Papua Pegunungan">Papua Pegunungan</option>
+                <option value="Papua Barat Daya">Papua Barat Daya</option>
+              </optgroup>
+            </select>
           </div>
-        </div>
 
+          {/* Bio */}
+          <div>
+            <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
+              Bio Singkat
+            </label>
+            <textarea 
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={4}
+              maxLength={200}
+              className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition-all leading-relaxed"
+              placeholder="Tuliskan pengalaman bisnis, hobi, atau apa saja tentang dirimu..."
+            />
+            <span className="text-[10px] text-gray-400 mt-1 block text-right">
+              Batas karakter: {bio.length}/200
+            </span>
+          </div>
+
+          {/* Save Buttons */}
+          <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-neutral-800">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-6 py-3 bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold rounded-2xl text-xs transition-colors cursor-pointer shadow-md disabled:opacity-50 animate-fade-in"
+            >
+              {isSyncing ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Simpan & Sinkronisasikan Sekarang
+            </button>
+          </div>
+
+        </div>
       </div>
     </div>
   );
