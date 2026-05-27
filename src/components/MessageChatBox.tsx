@@ -3,18 +3,19 @@ import { Friend, Message } from '../types';
 import { 
   Send, MapPin, CheckCheck, Loader2, Sparkles, AlertCircle, Phone, Video, Search, 
   ChevronLeft, MessageSquare, Trash2, Camera, Smile, X, Mic, MicOff, VideoOff, 
-  PhoneOff, Volume2, Plus, Image as ImageIcon, CircleCheck 
+  PhoneOff, Volume2, Plus, Image as ImageIcon, CircleCheck, CornerUpLeft 
 } from 'lucide-react';
 
 interface MessageChatBoxProps {
   currentUserId: string;
   friends: Friend[];
   messages: Message[];
-  onSendMessage: (senderId: string, receiverId: string, content: string, image?: string, marketplaceContext?: any) => void;
+  onSendMessage: (senderId: string, receiverId: string, content: string, image?: string, marketplaceContext?: any, replyTo?: any) => void;
   onSimulateReply: (senderId: string, text: string, image?: string) => void;
   activeChatFriendId: string | null;
   setActiveChatFriendId: (id: string | null) => void;
   onDeleteMessages: (messageIds: string[]) => void;
+  onViewProfile: (userId: string) => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡', '✨', '🔥', '🎉', '🌟', '🙌', '👏', '🙏', '💯', '🚀'];
@@ -28,9 +29,11 @@ export default function MessageChatBox({
   activeChatFriendId,
   setActiveChatFriendId,
   onDeleteMessages,
+  onViewProfile,
 }: MessageChatBoxProps) {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [chatCategory, setChatCategory] = useState<'all' | 'general' | 'marketplace'>('all');
   
@@ -96,11 +99,18 @@ export default function MessageChatBox({
   const handleSend = () => {
     if ((!inputText.trim() && !attachedImage) || !activeChatFriendId) return;
 
-    // Send core message with optional attached image
-    onSendMessage(currentUserId, activeChatFriendId, inputText, attachedImage || undefined);
+    // Send core message with optional attached image and reply payload
+    const replyPayload = replyingToMessage ? {
+      id: replyingToMessage.id,
+      senderName: replyingToMessage.senderId === currentUserId ? 'Anda' : (selectedFriend?.displayName || 'Teman'),
+      content: replyingToMessage.content
+    } : undefined;
+
+    onSendMessage(currentUserId, activeChatFriendId, inputText, attachedImage || undefined, undefined, replyPayload);
     
     setInputText('');
     setAttachedImage(null);
+    setReplyingToMessage(null);
     setShowEmojiPicker(false);
 
     // Trigger typing responder simulation
@@ -319,28 +329,35 @@ export default function MessageChatBox({
                 <ChevronLeft className="h-5 w-5" />
               </button>
 
-              <div className="relative">
-                <img 
-                  src={selectedFriend.avatar} 
-                  alt={selectedFriend.displayName} 
-                  className={`h-9 w-9 rounded-full object-cover ring-2 ${
-                    selectedFriend.isOnline ? 'ring-emerald-500' : 'ring-neutral-350 dark:ring-neutral-700'
-                  }`} 
-                />
-                <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-neutral-900 ${
-                  selectedFriend.isOnline ? 'bg-emerald-500' : 'bg-neutral-450'
-                }`} />
-              </div>
+              <div 
+                onClick={() => onViewProfile(selectedFriend.id)}
+                className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity min-w-0"
+                title="Klik untuk melihat profil terverifikasi"
+              >
+                <div className="relative shrink-0">
+                  <img 
+                    src={selectedFriend.avatar} 
+                    alt={selectedFriend.displayName} 
+                    className={`h-9 w-9 rounded-full object-cover ring-2 ${
+                      selectedFriend.isOnline ? 'ring-blue-500' : 'ring-neutral-350 dark:ring-neutral-700'
+                    }`} 
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-neutral-900 ${
+                    selectedFriend.isOnline ? 'bg-blue-500' : 'bg-neutral-400'
+                  }`} />
+                </div>
 
-              <div className="text-left leading-tight min-w-0">
-                <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate flex items-center gap-1">
-                  {selectedFriend.displayName}
-                </h4>
-                <p className={`text-[10px] font-bold ${
-                  selectedFriend.isOnline ? 'text-emerald-500' : 'text-neutral-400 dark:text-neutral-500'
-                }`}>
-                  {selectedFriend.isOnline ? 'Online • Aktif Sekarang' : `Offline • Aktif ${selectedFriend.lastActive || 'Kemarin'}`}
-                </p>
+                <div className="text-left leading-tight min-w-0">
+                  <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate flex items-center gap-1">
+                    {selectedFriend.displayName}
+                  </h4>
+                  <p className={`text-[10px] font-bold ${
+                    selectedFriend.isOnline ? 'text-blue-500' : 'text-neutral-400 dark:text-neutral-500'
+                  }`}>
+                    {selectedFriend.isOnline ? 'Online • Aktif Sekarang' : `Offline • Aktif ${selectedFriend.lastActive || 'Kemarin'}`}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -509,10 +526,33 @@ export default function MessageChatBox({
                   <div
                     className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs space-y-2.5 shadow-xs relative group ${
                       fromMe
-                        ? 'bg-emerald-500 text-white rounded-br-none'
+                        ? 'bg-blue-600 text-white rounded-br-none'
                         : 'bg-slate-700 dark:bg-[#1e293b] text-white rounded-bl-none border-none'
                     }`}
                   >
+                    {/* Reply tag overlay trigger */}
+                    {!isDeleteMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReplyingToMessage(msg);
+                        }}
+                        className={`absolute -top-3.5 ${fromMe ? '-left-2' : '-right-2'} bg-linear-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-all cursor-pointer flex items-center gap-1 z-10`}
+                        title="Balas pesan ini"
+                      >
+                        <CornerUpLeft className="h-2.5 w-2.5" />
+                        <span>Balas</span>
+                      </button>
+                    )}
+
+                    {/* Rendering quoted parent reply message similar to Facebook */}
+                    {msg.replyTo && (
+                      <div className="mb-2 p-2 bg-black/20 rounded-lg text-left border-l-2 border-blue-400 text-[10.5px] text-gray-250 block truncate pointer-events-none">
+                        <p className="font-extrabold text-[9px] text-blue-300">Membalas {msg.replyTo.senderName}:</p>
+                        <p className="italic opacity-85 truncate mt-0.5">{msg.replyTo.content}</p>
+                      </div>
+                    )}
+
                     {/* Render message media if there is an image */}
                     {msg.image && (
                       <div className="rounded-xl overflow-hidden max-h-48 border border-white/10 dark:border-neutral-800 bg-neutral-900/40">
@@ -528,10 +568,10 @@ export default function MessageChatBox({
                     {msg.content && <p className="leading-relaxed text-left break-words">{msg.content}</p>}
 
                     <div className="flex justify-end items-center gap-1.5">
-                      <span className={`text-[8px] ${fromMe ? 'text-emerald-100' : 'text-slate-300 dark:text-neutral-400'}`}>
+                      <span className={`text-[8px] ${fromMe ? 'text-blue-100' : 'text-slate-300 dark:text-neutral-400'}`}>
                         {msg.createdAt}
                       </span>
-                      {fromMe && <CheckCheck className="h-3 w-3 text-emerald-100" />}
+                      {fromMe && <CheckCheck className="h-3 w-3 text-blue-100" />}
                     </div>
                   </div>
                 </div>
@@ -587,6 +627,26 @@ export default function MessageChatBox({
             </div>
           )}
 
+          {/* Replying banner UI similar to Facebook */}
+          {replyingToMessage && (
+            <div className="px-4 py-2 bg-neutral-100 dark:bg-neutral-950 border-t border-gray-150 dark:border-neutral-800 flex items-center justify-between text-xs animate-fade-in text-left">
+              <div className="flex items-center gap-2 border-l-2 border-blue-500 pl-2.5 min-w-0">
+                <div className="min-w-0">
+                  <p className="font-extrabold text-[10px] text-blue-500 uppercase tracking-wide">Membalas pesan {replyingToMessage.senderId === currentUserId ? 'Anda' : selectedFriend?.displayName}:</p>
+                  <p className="text-gray-500 dark:text-neutral-400 truncate text-[11px] max-w-xl italic mt-0.5">
+                    {replyingToMessage.content || '[Gambar / Attachment]'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setReplyingToMessage(null)}
+                className="p-1 px-2 text-gray-400 hover:text-rose-500 transition-colors uppercase cursor-pointer shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* Chat input form attached */}
           <div className="p-4 border-t border-gray-150 dark:border-neutral-800 bg-white dark:bg-neutral-900/95 flex gap-2 relative">
             
@@ -622,12 +682,12 @@ export default function MessageChatBox({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="flex-1 bg-gray-50 dark:bg-neutral-800 rounded-xl px-4 text-xs text-gray-900 dark:text-gray-150 border border-gray-200 dark:border-neutral-750 focus:border-emerald-500 focus:outline-hidden"
+              className="flex-1 bg-gray-50 dark:bg-neutral-800 rounded-xl px-4 text-xs text-gray-900 dark:text-gray-150 border border-gray-200 dark:border-neutral-750 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
             />
             
             <button
               onClick={handleSend}
-              className="p-3 bg-emerald-500 select-none hover:bg-emerald-600 rounded-xl text-white transition-colors cursor-pointer shadow-xs"
+              className="p-3 bg-blue-600 select-none hover:bg-blue-700 rounded-xl text-white transition-colors cursor-pointer shadow-xs"
             >
               <Send className="h-4.5 w-4.5" />
             </button>

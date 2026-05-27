@@ -50,6 +50,11 @@ export interface Message {
   marketplaceContext?: MessageMarketplaceContext;
   isRead: boolean;
   createdAt: string;
+  replyTo?: {
+    id: string;
+    senderName: string;
+    content: string;
+  };
 }
 
 export interface Friend {

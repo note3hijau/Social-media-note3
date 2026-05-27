@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { User, Post, MarketplaceItem, Friend, FriendRequest, AppNotification, Message, EscrowTransaction } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -47,6 +47,82 @@ import {
   Smile,
   Image as ImageIcon
 } from 'lucide-react';
+
+const INDONESIA_REGIONS = [
+  {
+    provinsi: 'DKI Jakarta',
+    kabupatens: ['Jakarta Selatan', 'Jakarta Pusat', 'Jakarta Barat', 'Jakarta Timur', 'Jakarta Utara', 'Kepulauan Seribu']
+  },
+  {
+    provinsi: 'Jawa Barat',
+    kabupatens: ['Bandung', 'Bekasi', 'Depok', 'Bogor', 'Tasikmalaya', 'Cirebon', 'Cimahi', 'Sukabumi', 'Garut', 'Karawang', 'Subang', 'Sumedang']
+  },
+  {
+    provinsi: 'Jawa Tengah',
+    kabupatens: ['Semarang', 'Surakarta (Solo)', 'Yogyakarta', 'Sleman', 'Bantul', 'Magelang', 'Pekalongan', 'Salatiga', 'Tegal', 'Cilacap', 'Banyumas', 'Kudus']
+  },
+  {
+    provinsi: 'Jawa Timur',
+    kabupatens: ['Surabaya', 'Malang', 'Sidoarjo', 'Gresik', 'Madiun', 'Kediri', 'Pasuruan', 'Probolinggo', 'Batu', 'Jember', 'Banyuwangi', 'Mojokerto']
+  },
+  {
+    provinsi: 'Banten',
+    kabupatens: ['Tangerang', 'Tangerang Selatan', 'Serang', 'Cilegon', 'Lebak', 'Pandeglang']
+  },
+  {
+    provinsi: 'Sumatera Utara',
+    kabupatens: ['Medan', 'Binjai', 'Tebing Tinggi', 'Pematangsiantar', 'Sibolga', 'Tanjungbalai', 'Deli Serdang', 'Karo', 'Simalungun']
+  },
+  {
+    provinsi: 'Sumatera Barat',
+    kabupatens: ['Padang', 'Bukittinggi', 'Payakumbuh', 'Solok', 'Pariaman', 'Padang Panjang', 'Agam', 'Tanah Datar']
+  },
+  {
+    provinsi: 'Sumatera Selatan',
+    kabupatens: ['Palembang', 'Prabumulih', 'Lubuklinggau', 'Pagar Alam', 'Ogan Komering Ilir', 'Banyuasin', 'Muara Enim']
+  },
+  {
+    provinsi: 'Riau & Kepri',
+    kabupatens: ['Pekanbaru', 'Batam', 'Tanjungpinang', 'Dumai', 'Bengkalis', 'Kampar', 'Karimun', 'Bintan']
+  },
+  {
+    provinsi: 'Bali',
+    kabupatens: ['Denpasar', 'Badung', 'Gianyar', 'Buleleng', 'Tabanan', 'Klungkung', 'Karangasem', 'Jembrana', 'Bangli']
+  },
+  {
+    provinsi: 'Nusa Tenggara',
+    kabupatens: ['Mataram', 'Kupang', 'Lombok Barat', 'Lombok Timur', 'Sumbawa', 'Manggarai', 'Sikka', 'Ende']
+  },
+  {
+    provinsi: 'Kalimantan',
+    kabupatens: ['Pontianak', 'Banjarmasin', 'Balikpapan', 'Samarinda', 'Tarakan', 'Palangkaraya', 'Kutai Kartanegara', 'Banjar']
+  },
+  {
+    provinsi: 'Sulawesi',
+    kabupatens: ['Makassar', 'Manado', 'Palu', 'Kendari', 'Gorontalo', 'Bitung', 'Minahasa', 'Gowa', 'Maros']
+  },
+  {
+    provinsi: 'Maluku & Papua',
+    kabupatens: ['Ambon', 'Jayapura', 'Sorong', 'Ternate', 'Merauke', 'Manokwari', 'Mimika', 'Biak Numfor']
+  }
+];
+
+const ENRICHED_CATEGORIES = [
+  "Elektronik & Gadget (HP, Laptop, Kamera dll)",
+  "Fashion & Aksesoris (Pakaian, Sepatu dll)",
+  "Kendaraan Bermotor (Mobil, Motor dll)",
+  "Perlengkapan Rumah & Mebel / Furnitur",
+  "Olahraga, Kebugaran & Aktivitas Outdoor",
+  "Buku, Alat Tulis & Pendidikan",
+  "Hobi, Koleksi, Games & Mainan Anak",
+  "Makanan, Minuman & Kuliner Nusantara",
+  "Kerajinan Tangan & Produk Kreatif Daerah",
+  "Kecantikan, Kesehatan & Herbal Organik",
+  "Seni, Alat Musik & Barang Antik",
+  "Ibu, Bayi, Perlengkapan Anak dan Mainan",
+  "Properti (Rumah, Kontrakan, Ruko & Tanah)",
+  "Jasa Profesional, Lowongan & Kemitraan"
+];
 
 export default function App() {
   // --- Persistent Local States ---
@@ -105,6 +181,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
   const [viewListingId, setViewListingId] = useState<string | null>(null);
+  const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
   
   // Custom states
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,10 +197,15 @@ export default function App() {
   const [newMarketTitle, setNewMarketTitle] = useState('');
   const [newMarketPrice, setNewMarketPrice] = useState('');
   const [newMarketDesc, setNewMarketDesc] = useState('');
-  const [newMarketCategory, setNewMarketCategory] = useState('Elektronik');
+  const [newMarketCategory, setNewMarketCategory] = useState('Elektronik & Gadget (HP, Laptop, Kamera dll)');
   const [newMarketCondition, setNewMarketCondition] = useState<'Baru' | 'Bekas'>('Baru');
   const [newMarketImage, setNewMarketImage] = useState('https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&auto=format&fit=crop&q=80');
   const [showSellModal, setShowSellModal] = useState(false);
+  const [newMarketUploadedImages, setNewMarketUploadedImages] = useState<string[]>([]);
+  const [marketUploadProgress, setMarketUploadProgress] = useState<number | null>(null);
+  const [marketIsUploading, setMarketIsUploading] = useState(false);
+  const [marketProvinsi, setMarketProvinsi] = useState('DKI Jakarta');
+  const [marketKabupaten, setMarketKabupaten] = useState('Jakarta Selatan');
 
   // Chat tracking states
   const [activeChatFriendId, setActiveChatFriendId] = useState<string | null>(null);
@@ -394,9 +476,11 @@ export default function App() {
     // Push notification
     const successNotif: AppNotification = {
       id: 'notif_acc_' + Date.now(),
-      type: 'system',
+      type: 'friend_request',
       title: 'Pertemanan Diterima',
-      content: `Anda sekarang berteman dengan ${senderName} di idebagus.com. Mulai kirim pesan obrolan aman!`,
+      content: `Anda sekarang berteman dengan ${senderName} di idebagus.com. Klik untuk lihat profilnya!`,
+      senderId: requestItem?.senderId,
+      targetId: requestItem?.senderId,
       isRead: false,
       createdAt: 'Baru saja'
     };
@@ -411,7 +495,7 @@ export default function App() {
   };
 
   // --- Business logic: Chat Messaging replies ---
-  const handleSendMessage = (senderId: string, receiverId: string, content: string, image?: string, marketplaceContext?: any) => {
+  const handleSendMessage = (senderId: string, receiverId: string, content: string, image?: string, marketplaceContext?: any, replyTo?: any) => {
     const newMsg: Message = {
       id: 'm_' + Date.now(),
       senderId,
@@ -419,6 +503,7 @@ export default function App() {
       content,
       image,
       marketplaceContext,
+      replyTo,
       isRead: true,
       createdAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     };
@@ -537,6 +622,10 @@ export default function App() {
   const handleCreateMarketItem = () => {
     if (!newMarketTitle.trim() || !newMarketPrice.trim()) return;
 
+    const mainImage = newMarketUploadedImages.length > 0
+      ? newMarketUploadedImages[0]
+      : 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=600&auto=format&fit=crop&q=80';
+
     const newItem: MarketplaceItem = {
       id: 'item_' + Date.now(),
       sellerId: currentUser.id,
@@ -545,9 +634,9 @@ export default function App() {
       title: newMarketTitle,
       description: newMarketDesc,
       price: parseInt(newMarketPrice) || 0,
-      image: newMarketImage,
+      image: mainImage,
       category: newMarketCategory,
-      location: currentUser.location,
+      location: `${marketKabupaten}, ${marketProvinsi}`,
       condition: newMarketCondition,
       isSold: false
     };
@@ -559,17 +648,70 @@ export default function App() {
     setNewMarketTitle('');
     setNewMarketPrice('');
     setNewMarketDesc('');
+    setNewMarketUploadedImages([]);
+    setMarketProvinsi('DKI Jakarta');
+    setMarketKabupaten('Jakarta Selatan');
 
     // Push System confirmation
     const sellNotif: AppNotification = {
       id: 'n_mkt_sell_' + Date.now(),
       type: 'marketplace',
       title: 'Barang Berhasil Diiklankan',
-      content: `Produk "${newItem.title}" Anda berhasil ditayangkan di region ${currentUser.location.split(',')[0]}!`,
+      content: `Produk "${newItem.title}" Anda berhasil ditayangkan di region ${newItem.location.split(',')[0]}!`,
       isRead: false,
       createdAt: 'Baru saja'
     };
     setNotifications(prev => [sellNotif, ...prev]);
+  };
+
+  const handleMarketPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    // Check total limit
+    const totalCurrent = newMarketUploadedImages.length;
+    if (totalCurrent >= 15) {
+      alert('Batas maksimal adalah 15 foto!');
+      return;
+    }
+    
+    const countToLoad = Math.min(files.length, 15 - totalCurrent);
+    if (countToLoad <= 0) return;
+
+    setMarketIsUploading(true);
+    setMarketUploadProgress(10);
+
+    // Simulate upload progress
+    let progress = 10;
+    const interval = setInterval(() => {
+      progress += 25;
+      if (progress >= 100) {
+        clearInterval(interval);
+        setMarketUploadProgress(100);
+
+        // Load files as base64 DataURLs
+        const loadedUrls: string[] = [];
+        let processedCount = 0;
+
+        for (let i = 0; i < countToLoad; i++) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              loadedUrls.push(event.target.result as string);
+            }
+            processedCount++;
+            if (processedCount === countToLoad) {
+              setNewMarketUploadedImages(prev => [...prev, ...loadedUrls].slice(0, 15));
+              setMarketIsUploading(false);
+              setMarketUploadProgress(null);
+            }
+          };
+          reader.readAsDataURL(files[i]);
+        }
+      } else {
+        setMarketUploadProgress(progress);
+      }
+    }, 200);
   };
 
   const handleCompletePaymentTransactionByBuyer = (
@@ -802,7 +944,10 @@ export default function App() {
         setActiveChatFriendId(senderId);
       }
     } else if (notif.type === 'friend_request') {
-      setActiveTab('feed');
+      setActiveTab('profile');
+      if (notif.senderId || notif.targetId) {
+        setViewingProfileUserId(notif.senderId || notif.targetId || null);
+      }
     } else if (notif.type === 'like' || notif.type === 'comment') {
       setActiveTab('feed');
       let matchedPostId = notif.targetId;
@@ -1216,19 +1361,11 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Header title/filters: Silver styled textboxes */}
-                <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center text-left">
-                  <div className="p-3.5 rounded-2xl bg-slate-800 border border-slate-705 text-left">
-                    <h3 className="font-extrabold text-sm text-[#cbd5e1] uppercase tracking-wider">
-                      Katalog Barang Terbuka
-                    </h3>
-                    <p className="text-[10px] text-slate-450">
-                      Pajangan iklan terlengkap dari berbagai penjual lokal di seluruh penjuru Indonesia
-                    </p>
-                  </div>
+                {/* Header title/filters: Keep the buttons aligned and clean */}
+                <div className="flex justify-end text-left">
                   <button 
                     onClick={() => setShowSellModal(true)}
-                    className="text-[10.5px] bg-slate-700 hover:bg-slate-650 text-white border border-slate-600 font-extrabold px-3 py-2 rounded-xl shrink-0 cursor-pointer"
+                    className="text-[10.5px] bg-slate-700 hover:bg-slate-650 text-white border border-slate-600 font-extrabold px-3.5 py-2 rounded-xl shrink-0 cursor-pointer"
                   >
                     + Pasang Iklan Baru
                   </button>
@@ -1335,16 +1472,63 @@ export default function App() {
                 activeChatFriendId={activeChatFriendId}
                 setActiveChatFriendId={setActiveChatFriendId}
                 onDeleteMessages={handleDeleteMessages}
+                onViewProfile={(userId) => {
+                  setViewingProfileUserId(userId);
+                  setActiveTab('profile');
+                }}
               />
             )}
 
             {/* --- TAB: PROFILE SETTINGS SYNC --- */}
-            {activeTab === 'profile' && (
-              <ProfileEditTab
-                currentUser={currentUser}
-                onUpdateUser={setCurrentUser}
-              />
-            )}
+            {activeTab === 'profile' && (() => {
+              const getProfileUser = (userId: string | null): User => {
+                if (!userId || userId === currentUser.id) return currentUser;
+                const friend = friends.find(f => f.id === userId);
+                if (friend) {
+                  return {
+                    id: friend.id,
+                    username: friend.displayName.toLowerCase().replace(/\s+/g, '_'),
+                    displayName: friend.displayName,
+                    avatar: friend.avatar,
+                    banner: 'https://images.unsplash.com/photo-1618011500743-7f9a42d9410a?w=1200',
+                    bannerPosition: 50,
+                    bio: `Halo, saya ${friend.displayName}. Senang berteman dengan Anda di Portal Hubungan idebagus Indonesia! Mari berkolaborasi mengembangkan produk daerah unggulan dan berdiskusi aman secara terdistribusi di sini.`,
+                    location: 'Indonesia',
+                    joinedDate: 'Mei 2024',
+                    followersCount: 142
+                  };
+                }
+                const reqItem = friendRequests.find(r => r.senderId === userId);
+                if (reqItem) {
+                  return {
+                    id: reqItem.senderId,
+                    username: reqItem.senderName.toLowerCase().replace(/\s+/g, '_'),
+                    displayName: reqItem.senderName,
+                    avatar: reqItem.senderAvatar,
+                    banner: 'https://images.unsplash.com/photo-1618011500743-7f9a42d9410a?w=1200',
+                    bannerPosition: 50,
+                    bio: `Halo, saya ${reqItem.senderName}. Senang berteman dengan Anda di Portal Hubungan idebagus Indonesia! Mari berkolaborasi mengembangkan produk daerah unggulan dan berdiskusi aman secara terdistribusi di sini.`,
+                    location: 'Indonesia',
+                    joinedDate: 'Mei 2024',
+                    followersCount: 88
+                  };
+                }
+                return currentUser;
+              };
+
+              return (
+                <ProfileEditTab
+                  currentUser={currentUser}
+                  onUpdateUser={setCurrentUser}
+                  viewedUser={viewingProfileUserId ? getProfileUser(viewingProfileUserId) : undefined}
+                  onStartChat={(userId) => {
+                    setActiveChatFriendId(userId);
+                    setActiveTab('chat');
+                  }}
+                  onBackToMyProfile={() => setViewingProfileUserId(null)}
+                />
+              );
+            })()}
 
           </main>
 
@@ -1372,13 +1556,19 @@ export default function App() {
       {/* --- SELL PRODUCT MODAL FOR PASANG IKLAN MALAH --- */}
       {showSellModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto scrollbar-thin">
             <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-neutral-800 mb-4">
               <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1.5">
-                <ShoppingBag className="h-4.5 w-4.5 text-emerald-500" />
+                <ShoppingBag className="h-4.5 w-4.5 text-blue-600" />
                 Pasang Dagangan Baru
               </h3>
-              <button onClick={() => setShowSellModal(false)} className="p-1 rounded-full hover:bg-gray-100 text-gray-400">
+              <button 
+                onClick={() => {
+                  setShowSellModal(false);
+                  setNewMarketUploadedImages([]);
+                }} 
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-400"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1391,7 +1581,7 @@ export default function App() {
                   value={newMarketTitle}
                   onChange={(e) => setNewMarketTitle(e.target.value)}
                   placeholder="Contoh: Sepeda Lipat Polygon S90"
-                  className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs"
+                  className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900 dark:text-white"
                 />
               </div>
 
@@ -1399,11 +1589,15 @@ export default function App() {
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 block mb-1">Harga (Rupiah Rp):</label>
                   <input 
-                    type="number"
-                    value={newMarketPrice}
-                    onChange={(e) => setNewMarketPrice(e.target.value)}
-                    placeholder="3500000"
-                    className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs"
+                    type="text"
+                    value={newMarketPrice ? parseInt(newMarketPrice.replace(/\D/g, ''), 10).toLocaleString('id-ID') : ''}
+                    onChange={(e) => {
+                      // Allow only numbers
+                      const digits = e.target.value.replace(/\D/g, '');
+                      setNewMarketPrice(digits);
+                    }}
+                    placeholder="Contoh: 3.500.000"
+                    className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900 dark:text-white font-extrabold text-blue-600"
                   />
                 </div>
                 <div>
@@ -1411,12 +1605,11 @@ export default function App() {
                   <select 
                     value={newMarketCategory}
                     onChange={(e) => setNewMarketCategory(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs"
+                    className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900 dark:text-white"
                   >
-                    <option value="Elektronik">Elektronik</option>
-                    <option value="Mebel / Furnitur">Mebel / Furnitur</option>
-                    <option value="Olahraga">Olahraga</option>
-                    <option value="Fashion">Fashion</option>
+                    {ENRICHED_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1424,38 +1617,150 @@ export default function App() {
               <div>
                 <label className="text-[11px] font-bold text-gray-500 block mb-1">Kondisi Barang:</label>
                 <div className="flex gap-4">
-                  <label className="inline-flex items-center gap-1.5 text-xs">
-                    <input type="radio" checked={newMarketCondition === 'Baru'} onChange={() => setNewMarketCondition('Baru')} className="accent-emerald-500" />
-                    Baru (Segel)
+                  <label className="inline-flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                    <input 
+                      type="radio" 
+                      checked={newMarketCondition === 'Baru'} 
+                      onChange={() => setNewMarketCondition('Baru')} 
+                      className="accent-blue-600" 
+                    />
+                    Baru (Segel / New in Box)
                   </label>
-                  <label className="inline-flex items-center gap-1.5 text-xs">
-                    <input type="radio" checked={newMarketCondition === 'Bekas'} onChange={() => setNewMarketCondition('Bekas')} className="accent-emerald-500" />
-                    Bekas (Second)
+                  <label className="inline-flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                    <input 
+                      type="radio" 
+                      checked={newMarketCondition === 'Bekas'} 
+                      onChange={() => setNewMarketCondition('Bekas')} 
+                      className="accent-blue-600" 
+                    />
+                    Bekas (Seken / Pernah Pakai)
                   </label>
                 </div>
               </div>
 
-              {/* Presets images helper */}
-              <div>
-                <label className="text-[11px] font-bold text-gray-500 block mb-1">Pilih Gambar Ilustrasi Produk:</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&auto=format&fit=crop&q=80', // phone
-                    'https://images.unsplash.com/photo-1532372320978-9b4d1a358f4c?w=600&auto=format&fit=crop&q=80', // wood furniture
-                    'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=600&auto=format&fit=crop&q=80', // bike
-                    'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=600&auto=format&fit=crop&q=80'  // fashion shoes
-                  ].map((img, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setNewMarketImage(img)}
-                      className={`h-11 rounded-lg overflow-hidden border ${
-                        newMarketImage === img ? 'ring-2 ring-emerald-500 border-transparent' : 'border-gray-200'
-                      }`}
-                    >
-                      <img src={img} alt="Product preset" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
+              {/* DYNAMIC REGIONAL LOCATION OPTION (PROVINSI > KABUPATEN/KOTA) */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-neutral-50 dark:bg-neutral-950/40 rounded-2xl border border-neutral-150 dark:border-neutral-800">
+                <div className="col-span-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600">Lokasi Penjualan (Indonesia)</span>
                 </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Pilih Provinsi:</label>
+                  <select 
+                    value={marketProvinsi}
+                    onChange={(e) => {
+                      const prov = e.target.value;
+                      setMarketProvinsi(prov);
+                      const match = INDONESIA_REGIONS.find(r => r.provinsi === prov);
+                      if (match && match.kabupatens.length > 0) {
+                        setMarketKabupaten(match.kabupatens[0]);
+                      }
+                    }}
+                    className="w-full p-2 rounded-lg border border-gray-200 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900"
+                  >
+                    {INDONESIA_REGIONS.map((region) => (
+                      <option key={region.provinsi} value={region.provinsi}>{region.provinsi}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Pilih Kabupaten / Kota:</label>
+                  <select 
+                    value={marketKabupaten}
+                    onChange={(e) => setMarketKabupaten(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-gray-200 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900"
+                  >
+                    {(INDONESIA_REGIONS.find(r => r.provinsi === marketProvinsi)?.kabupatens || []).map((kab) => (
+                      <option key={kab} value={kab}>{kab}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* PHOTO UPLOAD CONTAINER SECTION (UP TO 15 PHOTOS) */}
+              <div className="space-y-2.5 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-150 dark:border-neutral-800">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-black text-gray-500 block">
+                    FOTO PRODUK ({newMarketUploadedImages.length}/15)
+                  </label>
+                  {newMarketUploadedImages.length > 0 && (
+                    <button 
+                      type="button"
+                      onClick={() => setNewMarketUploadedImages([])}
+                      className="text-[9px] font-extrabold text-rose-500 uppercase hover:underline cursor-pointer"
+                    >
+                      Hapus Semua Foto
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <label 
+                    className={`border-2 border-dashed rounded-xl p-3.5 flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                      newMarketUploadedImages.length >= 15 
+                        ? 'bg-gray-100 border-gray-200 cursor-not-allowed opacity-60' 
+                        : 'bg-blue-50/20 hover:bg-blue-50/40 border-blue-400 dark:border-neutral-700 dark:bg-neutral-950/20'
+                    }`}
+                  >
+                    <input 
+                      type="file" 
+                      multiple
+                      accept="image/*"
+                      disabled={newMarketUploadedImages.length >= 15 || marketIsUploading}
+                      onChange={handleMarketPhotoUpload}
+                      className="hidden" 
+                    />
+                    <ImageIcon className="h-5 w-5 text-blue-500 mb-1" />
+                    <span className="text-[11px] font-extrabold text-blue-600 uppercase tracking-wide font-mono">Pilih / Upload Foto Produk</span>
+                    <span className="text-[8.5px] text-gray-400 mt-0.5 font-mono">Maksimal 15 foto • Auto Cover Sampul</span>
+                  </label>
+                </div>
+
+                {/* Simulated Progress bar upload item */}
+                {marketIsUploading && marketUploadProgress !== null && (
+                  <div className="space-y-1 bg-white dark:bg-neutral-950 p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 animate-pulse">
+                    <div className="flex justify-between text-[10px] font-bold text-blue-600">
+                      <span>Mengunggah Foto Produk...</span>
+                      <span>{marketUploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-600 transition-all duration-300 rounded-full" 
+                        style={{ width: `${marketUploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Gallery List items list container */}
+                {newMarketUploadedImages.length > 0 && (
+                  <div className="grid grid-cols-5 gap-1.5 pt-1.5 max-h-[140px] overflow-y-auto scrollbar-thin p-1 bg-white dark:bg-neutral-950/60 rounded-xl border border-gray-150 dark:border-neutral-800">
+                    {newMarketUploadedImages.map((imgSrc, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-neutral-850 group">
+                        <img 
+                          src={imgSrc} 
+                          alt={`Uploaded ${idx}`} 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* COVER PREVIEW LOGO */}
+                        {idx === 0 && (
+                          <span className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white font-extrabold text-[7px] text-center uppercase py-0.5 select-none scale-90">
+                            SAMPUL
+                          </span>
+                        )}
+                        {/* DELETER INDIVIDUAL FOTO */}
+                        <button
+                          type="button"
+                          onClick={() => setNewMarketUploadedImages(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-0.5 right-0.5 bg-black/70 hover:bg-rose-600 transition-colors text-white p-0.5 rounded-full shadow-md cursor-pointer"
+                          title="Hapus foto ini"
+                        >
+                          <X className="h-2 w-2" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1465,14 +1770,25 @@ export default function App() {
                   onChange={(e) => setNewMarketDesc(e.target.value)}
                   rows={3}
                   placeholder="Tulis kelengkapan barang, minus fisik jika ada, garansi, dsb..."
-                  className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs"
+                  className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900 dark:text-white"
                 />
               </div>
 
-              <div className="pt-3 border-t border-gray-100 dark:border-neutral-800 flex justify-end">
+              <div className="pt-3 border-t border-gray-100 dark:border-neutral-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSellModal(false);
+                    setNewMarketUploadedImages([]);
+                  }}
+                  className="px-4 py-2.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-850 dark:hover:bg-neutral-750 text-neutral-700 dark:text-neutral-300 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Batal
+                </button>
                 <button
                   onClick={handleCreateMarketItem}
-                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+                  disabled={marketIsUploading}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50"
                 >
                   Terbitkan Iklan 🚀
                 </button>
