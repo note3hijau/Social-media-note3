@@ -1,6 +1,6 @@
 import { Bell, MessageSquare, Search, Sun, Moon, Users, ShoppingBag, Plus, Sparkles, Check } from 'lucide-react';
-import { User, AppNotification, FriendRequest, Friend } from '../types';
-import { useState } from 'react';
+import { User, AppNotification, FriendRequest, Friend, Message } from '../types';
+import { useState, useEffect, useRef } from 'react';
 
 interface HeaderProps {
   theme: 'light' | 'dark';
@@ -17,6 +17,7 @@ interface HeaderProps {
   unreadMessagesCount: number;
   onNotificationClick: (notif: AppNotification) => void;
   friends: Friend[];
+  messages: Message[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   setActiveChatFriendId: (id: string | null) => void;
@@ -37,18 +38,72 @@ export default function Header({
   unreadMessagesCount,
   onNotificationClick,
   friends,
+  messages,
   searchQuery,
   setSearchQuery,
   setActiveChatFriendId,
 }: HeaderProps) {
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
+  const [showMessagesDropdown, setShowMessagesDropdown] = useState(false);
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
+
+  const requestsDropdownRef = useRef<HTMLDivElement>(null);
+  const messagesDropdownRef = useRef<HTMLDivElement>(null);
+  const notificationsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        requestsDropdownRef.current &&
+        !requestsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowRequestsDropdown(false);
+      }
+      if (
+        messagesDropdownRef.current &&
+        !messagesDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowMessagesDropdown(false);
+      }
+      if (
+        notificationsDropdownRef.current &&
+        !notificationsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowNotificationsDropdown(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const pendingRequests = friendRequests.filter(r => r.status === 'pending');
 
+  const conversationList = friends
+    .map(friend => {
+      const thread = messages.filter(
+        m =>
+          (m.senderId === currentUser.id && m.receiverId === friend.id) ||
+          (m.senderId === friend.id && m.receiverId === currentUser.id)
+      );
+      const lastMsg = thread[thread.length - 1];
+      const unreadCount = thread.filter(m => m.senderId === friend.id && !m.isRead).length;
+      const isMarketplaceThread = thread.some(m => m.marketplaceContext !== undefined);
+      return {
+        friend,
+        lastMsg,
+        unreadCount,
+        isMarketplaceThread,
+      };
+    })
+    .filter(c => c.lastMsg !== undefined)
+    .sort((a, b) => b.lastMsg.id.localeCompare(a.lastMsg.id));
+
   return (
-    <header className="sticky top-0 z-40 w-full transition-colors duration-200 border-b border-gray-200 dark:border-slate-800 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur shadow-md">
+    <header className="sticky top-0 z-40 w-full transition-colors duration-200 shadow-lg glass-aqua-header">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         
         {/* Logo and Search bar */}
@@ -189,11 +244,12 @@ export default function Header({
           </button>
 
           {/* Friend Requests Badge Dropdown */}
-          <div className="relative">
+          <div ref={requestsDropdownRef} className="relative">
             <button
               onClick={() => {
                 setShowRequestsDropdown(!showRequestsDropdown);
                 setShowNotificationsDropdown(false);
+                setShowMessagesDropdown(false);
               }}
               className={`p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer relative ${
                 showRequestsDropdown ? 'bg-gray-100 dark:bg-slate-800' : ''
@@ -262,25 +318,121 @@ export default function Header({
             )}
           </div>
 
-          {/* Messages Alert (For short screens/desktops clicks quickly to Chat) */}
-          <button
-            onClick={() => setActiveTab('chat')}
-            className="p-2 lg:hidden rounded-xl hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-neutral-400 transition-colors relative"
-          >
-            <MessageSquare className="h-5 w-5" />
-            {unreadMessagesCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-neutral-900">
-                {unreadMessagesCount}
-              </span>
+          {/* Messages Dropdown Badge Icon */}
+          <div ref={messagesDropdownRef} className="relative">
+            <button
+              id="messages-dropdown-trigger-btn"
+              onClick={() => {
+                setShowMessagesDropdown(!showMessagesDropdown);
+                setShowNotificationsDropdown(false);
+                setShowRequestsDropdown(false);
+              }}
+              className={`p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer relative ${
+                showMessagesDropdown ? 'bg-gray-100 dark:bg-neutral-800' : ''
+              }`}
+            >
+              <MessageSquare className="h-5 w-5 text-gray-650 dark:text-slate-300" />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-neutral-900 animate-pulse">
+                  {unreadMessagesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Messages Dropdown List Content */}
+            {showMessagesDropdown && (
+              <div id="messages-header-dropdown" className="absolute right-[-4.5rem] sm:right-0 mt-2 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 dark:border-neutral-850 bg-white dark:bg-neutral-900 p-2 shadow-xl ring-1 ring-black/5 z-50">
+                <div className="px-3 py-2 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center mb-1">
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                    Pesan Masuk (Inbox)
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setActiveTab('chat');
+                      setActiveChatFriendId(null);
+                      setShowMessagesDropdown(false);
+                    }}
+                    className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    Buka Semua Obrolan
+                  </button>
+                </div>
+                <div className="max-h-80 overflow-y-auto space-y-1 py-1 scrollbar-thin">
+                  {conversationList.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                      Belum ada obrolan pesan masuk
+                    </div>
+                  ) : (
+                    conversationList.map(({ friend, lastMsg, unreadCount, isMarketplaceThread }) => (
+                      <div
+                        key={friend.id}
+                        onClick={() => {
+                          setActiveChatFriendId(friend.id);
+                          setActiveTab('chat');
+                          setShowMessagesDropdown(false);
+                        }}
+                        className={`p-2.5 rounded-xl transition-all flex gap-3 items-start text-left cursor-pointer ${
+                          unreadCount > 0 
+                            ? 'bg-blue-55/10 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/60 dark:hover:bg-blue-950/30' 
+                            : 'hover:bg-gray-50 dark:hover:bg-neutral-800/20'
+                        }`}
+                      >
+                        <div className="relative shrink-0">
+                          <img
+                            src={friend.avatar}
+                            alt={friend.displayName}
+                            className="h-9 w-9 rounded-full object-cover border border-gray-100 dark:border-neutral-800"
+                          />
+                          {friend.isOnline && (
+                            <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className={`text-xs truncate pr-2 ${unreadCount > 0 ? 'font-extrabold text-[#111] dark:text-white' : 'font-semibold text-gray-900 dark:text-neutral-200'}`}>
+                              {friend.displayName}
+                            </span>
+                            <span className="text-[9px] text-neutral-450 shrink-0">
+                              {lastMsg.createdAt}
+                            </span>
+                          </div>
+                          
+                          <p className={`text-[11px] truncate ${unreadCount > 0 ? 'text-gray-900 dark:text-neutral-100 font-medium' : 'text-gray-500 dark:text-neutral-400'}`}>
+                            {lastMsg.content || '[Gambar / Lampiran]'}
+                          </p>
+
+                          {/* INBOX INDICATION SEPARATORS */}
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            {isMarketplaceThread ? (
+                              <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 dark:bg-amber-950/45 px-1.5 py-0.5 rounded border border-amber-200/50">
+                                MARKETPLACE 🛒
+                              </span>
+                            ) : (
+                              <span className="text-[8px] font-black uppercase text-blue-600 bg-blue-55/10 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/40">
+                                PERSONAL 💬
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {unreadCount > 0 && (
+                          <span className="h-2.5 w-2.5 rounded-full bg-blue-600 shrink-0 mt-3 animate-pulse" />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
-          </button>
+          </div>
 
           {/* Global Notification Badge Dropdown */}
-          <div className="relative">
+          <div ref={notificationsDropdownRef} className="relative">
             <button
               onClick={() => {
                 setShowNotificationsDropdown(!showNotificationsDropdown);
                 setShowRequestsDropdown(false);
+                setShowMessagesDropdown(false);
                 if (!showNotificationsDropdown) {
                   markAllNotificationsRead();
                 }

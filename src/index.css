@@ -19,3 +19,51 @@
   animation: blink-custom 1.5s ease-in-out infinite alternate;
 }
 
+/* Aqua Transparent Frosted-Glass Premium Theme styles */
+body {
+  background: radial-gradient(circle at 5% 15%, rgba(6, 182, 212, 0.14) 0%, transparent 35%),
+              radial-gradient(circle at 95% 75%, rgba(20, 184, 166, 0.15) 0%, transparent 40%),
+              radial-gradient(circle at 45% 55%, rgba(8, 145, 178, 0.04) 0%, transparent 55%),
+              #f1f5f9;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.dark body {
+  background: radial-gradient(circle at 5% 15%, rgba(6, 182, 212, 0.25) 0%, transparent 35%),
+              radial-gradient(circle at 95% 75%, rgba(20, 184, 166, 0.28) 0%, transparent 40%),
+              radial-gradient(circle at 45% 55%, rgba(15, 23, 42, 0.8) 0%, transparent 60%),
+              #081721;
+}
+
+/* Glass Aqua Transparent Utility helper classes with high-contrast sharp boundaries */
+.glass-aqua-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(8, 145, 178, 0.2);
+  box-shadow: 0 10px 30px -5px rgba(8, 145, 178, 0.08), 0 4px 12px -2px rgba(8, 145, 178, 0.04);
+}
+
+.dark .glass-aqua-card {
+  background: rgba(14, 25, 34, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.4), 0 4px 15px -2px rgba(6, 182, 212, 0.1);
+}
+
+.glass-aqua-header {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 2px solid rgba(8, 145, 178, 0.24);
+}
+
+.dark .glass-aqua-header {
+  background: rgba(8, 20, 29, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 2px solid rgba(34, 211, 238, 0.3);
+}

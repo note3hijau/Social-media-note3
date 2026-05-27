@@ -3,7 +3,7 @@ import { Friend, Message } from '../types';
 import { 
   Send, MapPin, CheckCheck, Loader2, Sparkles, AlertCircle, Phone, Video, Search, 
   ChevronLeft, MessageSquare, Trash2, Camera, Smile, X, Mic, MicOff, VideoOff, 
-  PhoneOff, Volume2, Plus, Image as ImageIcon, CircleCheck, CornerUpLeft 
+  PhoneOff, Volume2, Plus, Image as ImageIcon, CircleCheck, CornerUpLeft, ShoppingBag 
 } from 'lucide-react';
 
 interface MessageChatBoxProps {
@@ -35,7 +35,7 @@ export default function MessageChatBox({
   const [isTyping, setIsTyping] = useState(false);
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [chatCategory, setChatCategory] = useState<'all' | 'general' | 'marketplace'>('all');
+  const [chatCategory, setChatCategory] = useState<'general' | 'marketplace'>('general');
   
   // Custom multi-delete and attachments features state
   const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -62,6 +62,22 @@ export default function MessageChatBox({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeChatFriendId]);
+
+  // Sync tab folder based on current chat thread type so it is immediately visible
+  useEffect(() => {
+    if (activeChatFriendId) {
+      const thread = messages.filter(
+        m => (m.senderId === currentUserId && m.receiverId === activeChatFriendId) || 
+             (m.senderId === activeChatFriendId && m.receiverId === currentUserId)
+      );
+      const isMarketplaceThread = thread.some(m => m.marketplaceContext !== undefined);
+      if (isMarketplaceThread) {
+        setChatCategory('marketplace');
+      } else {
+        setChatCategory('general');
+      }
+    }
+  }, [activeChatFriendId, messages, currentUserId]);
 
   // Handle auto-connecting of call ringing simulator
   useEffect(() => {
@@ -186,10 +202,9 @@ export default function MessageChatBox({
 
     if (chatCategory === 'marketplace') {
       return isMarketplaceThread;
-    } else if (chatCategory === 'general') {
+    } else {
       return !isMarketplaceThread;
     }
-    return true; // 'all'
   });
 
   return (
@@ -202,38 +217,33 @@ export default function MessageChatBox({
         
         {/* Search header container */}
         <div className="p-4 border-b border-gray-100 dark:border-neutral-800 bg-gray-50/45 dark:bg-neutral-900/40 space-y-3">
-          <h2 className="font-extrabold text-sm text-gray-900 dark:text-white">Pesan Obrolan</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="font-extrabold text-sm text-gray-900 dark:text-white">Pesan Obrolan</h2>
+            <span className="text-[9px] font-mono text-emerald-500 font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20">● Enkripsi</span>
+          </div>
           
           {/* Facebook Marketplace and General Category Tabs */}
-          <div className="flex gap-1">
-            <button
-              onClick={() => setChatCategory('all')}
-              className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all cursor-pointer ${
-                chatCategory === 'all'
-                  ? 'bg-emerald-500 text-white shadow-xs'
-                  : 'bg-white dark:bg-neutral-850 text-gray-500 dark:text-neutral-400 border border-gray-200 dark:border-neutral-800/80 hover:bg-gray-100'
-              }`}
-            >
-              Semua
-            </button>
+          <div className="flex bg-gray-100 dark:bg-neutral-950 p-1 rounded-xl border border-gray-200/40 dark:border-neutral-850">
             <button
               onClick={() => setChatCategory('general')}
-              className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all cursor-pointer ${
+              className={`flex-1 py-2 px-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider text-center transition-all cursor-pointer flex items-center justify-center gap-1 ${
                 chatCategory === 'general'
-                  ? 'bg-teal-500 text-white shadow-xs'
-                  : 'bg-white dark:bg-neutral-850 text-gray-500 dark:text-neutral-400 border border-gray-200 dark:border-neutral-800/80 hover:bg-gray-100'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-500 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800'
               }`}
             >
-              Teman
+              <MessageSquare className="h-3 w-3 shrink-0" />
+              Personal
             </button>
             <button
               onClick={() => setChatCategory('marketplace')}
-              className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all cursor-pointer flex items-center justify-center gap-0.5 ${
+              className={`flex-1 py-2 px-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider text-center transition-all cursor-pointer flex items-center justify-center gap-1 ${
                 chatCategory === 'marketplace'
                   ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-white dark:bg-neutral-850 text-gray-500 dark:text-neutral-400 border border-gray-200 dark:border-neutral-800/80 hover:bg-gray-100'
+                  : 'text-gray-500 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800'
               }`}
             >
+              <ShoppingBag className="h-3 w-3 shrink-0" />
               Pasar 🛒
             </button>
           </div>

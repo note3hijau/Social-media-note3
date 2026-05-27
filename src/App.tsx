@@ -1010,7 +1010,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] dark:bg-neutral-950 text-gray-900 dark:text-neutral-150 transition-colors duration-200">
+    <div className="min-h-screen text-gray-900 dark:text-neutral-150 transition-colors duration-200">
       
       {/* Real-time Toast Banner for incoming signals simulation */}
       {showNotificationBadgeSplash && (
@@ -1036,6 +1036,7 @@ export default function App() {
         unreadMessagesCount={unreadMessagesCount}
         onNotificationClick={handleNotificationClick}
         friends={friends}
+        messages={messages}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         setActiveChatFriendId={setActiveChatFriendId}
@@ -1089,7 +1090,7 @@ export default function App() {
               <div className="space-y-6">
                 
                 {/* Visual Quick Posting Entry Card with avatar */}
-                <div className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-150 dark:border-neutral-800 flex gap-3 items-center">
+                <div className="glass-aqua-card p-4 rounded-3xl flex gap-3 items-center">
                   <img src={currentUser.avatar} alt="User Avatar" className="h-10 w-10 rounded-full object-cover ring-2 ring-emerald-500" />
                   <button
                     onClick={() => setCreatePostModalOpen(true)}
@@ -1115,18 +1116,26 @@ export default function App() {
                         <article 
                           id={`post-${post.id}`}
                           key={post.id} 
-                          className={`bg-white dark:bg-neutral-900 rounded-3xl p-5 border shadow-2xs space-y-4 transition-all duration-300 ${
+                          className={`glass-aqua-card rounded-3xl p-5 space-y-4 transition-all duration-300 ${
                             post.id === highlightedPostId
-                              ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/5 dark:bg-blue-950/5'
-                              : 'border-gray-150 dark:border-neutral-800'
+                              ? 'border-cyan-500 ring-2 ring-cyan-500/20 shadow-md bg-cyan-50/10 dark:bg-cyan-950/20'
+                              : ''
                           }`}
                         >
                           {/* User authorship info */}
                           <div className="flex justify-between items-start">
                             <div className="flex gap-3">
-                              <img src={post.userAvatar} alt={post.userName} className="h-10 w-10 rounded-full object-cover border border-emerald-500/10" />
+                              <img 
+                                src={post.userAvatar} 
+                                alt={post.userName} 
+                                onClick={() => {
+                                  setViewingProfileUserId(post.userId);
+                                  setActiveTab('profile');
+                                }}
+                                className="h-10 w-10 rounded-full object-cover border border-emerald-500/10 cursor-pointer hover:opacity-85 transition-opacity" 
+                              />
                               <div className="text-left">
-                                <h4 className="font-bold text-xs text-gray-900 dark:text-white flex items-center gap-1">
+                                <h4 className="font-bold text-xs text-gray-500 dark:text-neutral-400 flex items-center gap-1">
                                   {post.userName}
                                   {post.userId === currentUser.id && <span className="text-[8px] bg-slate-100 dark:bg-neutral-800 text-slate-500 px-1 py-0.5 rounded-sm">Kamu</span>}
                                 </h4>
@@ -1188,6 +1197,18 @@ export default function App() {
                               <MessageCircle className="h-4.5 w-4.5" />
                               <span>{post.comments.length} Komentar</span>
                             </span>
+                            <button
+                              onClick={() => {
+                                const shareText = `Halo rekan UMKM, baca status dari ${post.userName} di IdeBagus: "${post.content.slice(0, 100)}${post.content.length > 100 ? '...' : ''}"\nKunjungi: ${window.location.href}`;
+                                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+                                window.open(waUrl, '_blank', 'noopener,noreferrer');
+                              }}
+                              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                              title="Bagikan ke WhatsApp Status"
+                            >
+                              <Share2 className="h-4.5 w-4.5" />
+                              <span>Bagikan WA</span>
+                            </button>
                           </div>
 
                           {/* Sub-Comments listings stack */}
@@ -1304,16 +1325,16 @@ export default function App() {
                                 <Smile className="h-4.5 w-4.5 text-amber-500" />
                               </button>
 
-                              <input
-                                type="text"
-                                placeholder="Tulis opini terbaik Anda..."
-                                value={newCommentText[post.id] || ''}
-                                onChange={(e) => setNewCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter') handleCommentPost(post.id);
-                                }}
-                                className="flex-1 bg-gray-50 dark:bg-slate-900 rounded-xl px-4 py-2 border border-gray-200 dark:border-neutral-750 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-950 dark:text-gray-150 focus:outline-hidden"
-                              />
+                               <input
+                                 type="text"
+                                 placeholder="Tulis opini terbaik Anda..."
+                                 value={newCommentText[post.id] || ''}
+                                 onChange={(e) => setNewCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                 onKeyPress={(e) => {
+                                   if (e.key === 'Enter') handleCommentPost(post.id);
+                                 }}
+                                 className="flex-1 bg-white rounded-xl px-4 py-2 border border-gray-200 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-950 focus:outline-hidden placeholder-gray-500 font-medium"
+                               />
                               <button
                                 onClick={() => handleCommentPost(post.id)}
                                 className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
@@ -1402,7 +1423,7 @@ export default function App() {
                       <div
                         key={item.id}
                         onClick={() => setViewListingId(item.id)}
-                        className="bg-white dark:bg-neutral-900 border border-gray-150 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-2xs group hover:scale-[1.01] transition-all flex flex-col justify-between cursor-pointer text-left"
+                        className="glass-aqua-card rounded-3xl overflow-hidden group hover:scale-[1.01] transition-all flex flex-col justify-between cursor-pointer text-left shadow-lg"
                       >
                         <div className="relative h-40 bg-gray-100 shrink-0">
                           <img src={item.image} alt={item.title} className="h-full w-full object-cover animate-fade-in" />
@@ -1768,13 +1789,29 @@ export default function App() {
                 <textarea 
                   value={newMarketDesc}
                   onChange={(e) => setNewMarketDesc(e.target.value)}
-                  rows={3}
+                  rows={5}
                   placeholder="Tulis kelengkapan barang, minus fisik jika ada, garansi, dsb..."
                   className="w-full p-2.5 rounded-xl border border-gray-205 dark:border-neutral-800 text-xs text-gray-900 bg-white dark:bg-neutral-900 dark:text-white"
                 />
               </div>
 
-              <div className="pt-3 border-t border-gray-100 dark:border-neutral-800 flex justify-end gap-2">
+              {/* Validation helper text */}
+              {!(
+                newMarketTitle.trim() &&
+                newMarketPrice.trim() &&
+                newMarketCategory.trim() &&
+                newMarketCondition.trim() &&
+                marketProvinsi.trim() &&
+                marketKabupaten.trim() &&
+                newMarketUploadedImages.length > 0 &&
+                newMarketDesc.trim()
+              ) && (
+                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 text-[10px] font-semibold text-center mt-3 border border-amber-250/20 animate-pulse">
+                  ⚠️ Peringatan: Semua kolom wajib diisi & unggah minimal 1 foto produk!
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-gray-100 dark:border-neutral-800 flex justify-end gap-2 items-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -1787,8 +1824,20 @@ export default function App() {
                 </button>
                 <button
                   onClick={handleCreateMarketItem}
-                  disabled={marketIsUploading}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50"
+                  disabled={
+                    marketIsUploading ||
+                    !(
+                      newMarketTitle.trim() &&
+                      newMarketPrice.trim() &&
+                      newMarketCategory.trim() &&
+                      newMarketCondition.trim() &&
+                      marketProvinsi.trim() &&
+                      marketKabupaten.trim() &&
+                      newMarketUploadedImages.length > 0 &&
+                      newMarketDesc.trim()
+                    )
+                  }
+                  className="px-6 py-2.5 bg-white hover:bg-neutral-105 text-black border border-neutral-300 font-extrabold text-xs rounded-xl shadow-md cursor-pointer disabled:bg-neutral-100 disabled:text-neutral-400 disabled:border-neutral-200 disabled:cursor-not-allowed disabled:shadow-none transition-all"
                 >
                   Terbitkan Iklan 🚀
                 </button>

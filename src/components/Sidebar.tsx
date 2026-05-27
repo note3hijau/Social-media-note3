@@ -82,15 +82,54 @@ export default function Sidebar({
                 {currentUser.displayName}
               </h4>
               <p className="text-[10px] text-gray-500 truncate">@{currentUser.username}</p>
-              <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-extrabold text-white bg-blue-600 px-1.5 py-0.5 rounded-full shadow-xs">
-                <ShieldCheck className="h-3 w-3" />
-                Verified Seller
-              </span>
+              <div className="flex flex-col gap-0.5 mt-1">
+                <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-white bg-blue-600 px-1.5 py-0.5 rounded-full shadow-xs w-fit">
+                  <ShieldCheck className="h-3 w-3" />
+                  Verified Seller
+                </span>
+                <span className="text-[8px] text-neutral-550 dark:text-gray-400 font-bold">
+                  ✓ Aktif {(() => {
+                    const joinedDateStr = currentUser.joinedDate || 'Mei 2024';
+                    const parts = joinedDateStr.trim().split(' ');
+                    if (parts.length < 2) return joinedDateStr;
+                    const monthStr = parts[0].toLowerCase();
+                    const year = parseInt(parts[1], 10);
+                    if (isNaN(year)) return joinedDateStr;
+
+                    const indonesianMonths = [
+                      'januari', 'februari', 'maret', 'april', 'mei', 'juni',
+                      'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
+                    ];
+                    const monthShorts = [
+                      'jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'
+                    ];
+
+                    let monthIndex = indonesianMonths.indexOf(monthStr);
+                    if (monthIndex === -1) {
+                      monthIndex = monthShorts.indexOf(monthStr);
+                    }
+                    if (monthIndex === -1) monthIndex = 4; // fallback Mei 
+
+                    const targetYear = 2026;
+                    const targetMonth = 4; // May
+
+                    const diffMonths = (targetYear - year) * 12 + (targetMonth - monthIndex);
+                    if (diffMonths <= 0) return 'Bulan ini';
+                    const years = Math.floor(diffMonths / 12);
+                    const months = diffMonths % 12;
+
+                    if (years > 0) {
+                      return `${years} Tahun${months > 0 ? ` ${months} Bulan` : ''}`;
+                    }
+                    return `${diffMonths} Bulan`;
+                  })()} (Sejak {currentUser.joinedDate || 'Mei 2024'})
+                </span>
+              </div>
             </div>
           </div>
           
           <div className="mt-3 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-2.5 rounded-xl text-[10px] text-gray-500">
-            <span>Region: 🇲🇨 Indonesia</span>
+            <span className="font-bold">Lokasi Toko</span>
             <span className="font-semibold text-blue-600 dark:text-blue-400">{currentUser.location.split(',')[0]}</span>
           </div>
         </div>
@@ -152,34 +191,6 @@ export default function Sidebar({
           >
             <span>🍔 Makanan & Minuman Kuliner</span>
           </button>
-
-          {/* Scalable Architecture Diagnostics Widget */}
-          <div className="mt-6 bg-gradient-to-br from-gray-50 to-blue-50/20 dark:from-slate-800/20 dark:to-blue-955/10 border border-gray-150 dark:border-slate-800 p-3 rounded-xl">
-            <div className="flex items-center gap-1.5 mb-2 text-[10px] font-extrabold uppercase text-white bg-blue-600 px-2 py-0.5 rounded-sm w-fit shadow-xs">
-              <HardDrive className="h-3 w-3" />
-              Scalable DB Schema Active
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-slate-400 leading-relaxed mb-2">
-              Sharding & query caching otomatis di seluruh region Indonesia untuk responsivitas instan di perangkat mobile.
-            </p>
-            <div className="space-y-1.5 text-[9px] text-gray-450 dark:text-slate-500 border-t border-gray-150 dark:border-slate-800/80 pt-1.5">
-              <div className="flex justify-between">
-                <span>Database Node:</span>
-                <span className="font-mono text-gray-700 dark:text-slate-300">Google Cloud SQL</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Latency Shard:</span>
-                <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">{serverStat.latency}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Status Sinkronasi:</span>
-                <span className="font-mono text-white bg-green-600 dark:bg-green-700 px-1.5 py-0.5 rounded-md text-[8px] font-extrabold tracking-wider flex items-center gap-1 shadow-xs">
-                  <span className="h-1 w-1 rounded-full bg-white inline-block animate-ping"></span>
-                  TERHUBUNG
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Sidebar Footer menu - Easily accessible LOGOUT */}

@@ -48,10 +48,6 @@ export default function MarketplaceDetail({ item, onClose, onContactSeller }: Ma
                 className="max-h-[250px] md:max-h-full max-w-full object-contain cursor-zoom-in transition-transform duration-300 hover:scale-105"
                 referrerPolicy="no-referrer"
               />
-              {/* Tag region */}
-              <span className="absolute bottom-3 left-3 bg-blue-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-md shadow-lg select-none">
-                Pasar Masyarakat Lokal 🇲🇨
-              </span>
             </div>
 
             {/* Changed & Moved buttons of the advertisement right here directly underneath the image */}

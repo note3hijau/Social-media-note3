@@ -89,7 +89,7 @@ export default function CreatePostModal({
             onChange={(e) => setContent(e.target.value)}
             rows={8}
             maxLength={500}
-            className="w-full border-0 focus:ring-0 text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 bg-gray-50/70 dark:bg-slate-900 p-4 rounded-2xl focus:outline-hidden leading-relaxed resize-none scrollbar-thin"
+            className="w-full border border-gray-200 text-xs sm:text-sm text-gray-900 placeholder-gray-500 bg-white p-4 rounded-2xl focus:outline-hidden leading-relaxed resize-none scrollbar-thin"
           />
           <div className="flex justify-between items-center text-[10px] text-gray-400">
             <span>Mendukung upload foto & penyisipan emoji</span>
