@@ -67,3 +67,14 @@ html.dark body {
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 2px solid rgba(34, 211, 238, 0.3);
 }
+
+/* Smooth scrolling marquee keyframe animation */
+@keyframes marquee-scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee-scroll 20s linear infinite;
+}

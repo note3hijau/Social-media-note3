@@ -537,7 +537,7 @@ export default function MessageChatBox({
                     className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs space-y-2.5 shadow-xs relative group ${
                       fromMe
                         ? 'bg-blue-600 text-white rounded-br-none'
-                        : 'bg-slate-700 dark:bg-[#1e293b] text-white rounded-bl-none border-none'
+                        : 'bg-white dark:bg-white text-gray-950 rounded-bl-none border border-gray-150'
                     }`}
                   >
                     {/* Reply tag overlay trigger */}
@@ -578,7 +578,7 @@ export default function MessageChatBox({
                     {msg.content && <p className="leading-relaxed text-left break-words">{msg.content}</p>}
 
                     <div className="flex justify-end items-center gap-1.5">
-                      <span className={`text-[8px] ${fromMe ? 'text-blue-100' : 'text-slate-300 dark:text-neutral-400'}`}>
+                      <span className={`text-[8px] ${fromMe ? 'text-blue-100' : 'text-gray-400'}`}>
                         {msg.createdAt}
                       </span>
                       {fromMe && <CheckCheck className="h-3 w-3 text-blue-100" />}

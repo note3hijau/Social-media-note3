@@ -9,6 +9,8 @@ export interface User {
   location: string; // Indonesian location
   joinedDate: string;
   followersCount: number;
+  email?: string;
+  role?: string;
 }
 
 export interface Comment {
@@ -83,6 +85,7 @@ export interface MarketplaceItem {
   description: string;
   price: number; // in IDR (Rupiah)
   image: string;
+  images?: string[];
   category: string;
   location: string; // Indonesian region e.g. Jakarta Selatan, Surabaya, Sleman
   condition: 'Baru' | 'Bekas';

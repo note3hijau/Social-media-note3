@@ -50,17 +50,17 @@ export default function CreatePostModal({
 
   return (
     <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white dark:bg-[#1e293b] border border-gray-150 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
+      <div className="bg-white dark:bg-white border border-gray-150 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
         
         {/* Header toolbar */}
-        <div className="flex justify-between items-center pb-4 border-b border-gray-100 dark:border-slate-800 mb-4">
-          <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1.5">
+        <div className="flex justify-between items-center pb-4 border-b border-gray-100 mb-4">
+          <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-900 dark:text-gray-900 flex items-center gap-1.5">
             <Sparkles className="h-4.5 w-4.5 text-blue-500" />
             Buat Postingan Baru
           </h3>
           <button 
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-850 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -74,8 +74,8 @@ export default function CreatePostModal({
             className="h-10 w-10 rounded-full object-cover ring-2 ring-emerald-500"
           />
           <div className="text-left">
-            <h4 className="font-bold text-xs text-gray-900 dark:text-white">{currentUser.displayName}</h4>
-            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+            <h4 className="font-bold text-xs text-gray-900 dark:text-gray-950">{currentUser.displayName}</h4>
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded">
               {currentUser.location.split(',')[0]}
             </span>
           </div>
@@ -112,7 +112,7 @@ export default function CreatePostModal({
 
           {/* Quick inline Emojis selection drawer */}
           {showEmojiSelector && (
-            <div className="p-3 bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-150 dark:border-slate-850 flex flex-wrap gap-2.5 animate-slide-in">
+            <div className="p-3 bg-white rounded-2xl border border-gray-150 flex flex-wrap gap-2.5 animate-slide-in">
               {POST_QUICK_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
@@ -124,7 +124,7 @@ export default function CreatePostModal({
               ))}
               <button 
                 onClick={() => setShowEmojiSelector(false)}
-                className="p-1 px-2.5 ml-auto text-[10px] font-bold text-gray-405 dark:text-neutral-400 hover:text-gray-600 uppercase"
+                className="p-1 px-2.5 ml-auto text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase"
               >
                 Tutup
               </button>
@@ -132,13 +132,13 @@ export default function CreatePostModal({
           )}
 
           {/* Social posting upload action tools */}
-          <div className="flex gap-2.5 border-t border-gray-100 dark:border-slate-800 pt-4 items-center justify-between">
+          <div className="flex gap-2.5 border-t border-gray-100 pt-4 items-center justify-between">
             <div className="flex gap-2">
               {/* Custom Image Upload Trigger */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3 py-2 border border-gray-205 dark:border-slate-755 hover:border-emerald-500 rounded-xl text-xs text-gray-600 dark:text-slate-350 bg-gray-50 dark:bg-slate-900 cursor-pointer hover:bg-emerald-50/20"
+                className="flex items-center gap-1.5 px-3 py-2 border border-gray-205 hover:border-emerald-500 rounded-xl text-xs text-gray-600 bg-white cursor-pointer hover:bg-emerald-50/20"
                 title="Unggah Gambar Kustom"
               >
                 <ImageIcon className="h-4.5 w-4.5 text-emerald-500" />
@@ -156,9 +156,9 @@ export default function CreatePostModal({
               <button
                 type="button"
                 onClick={() => setShowEmojiSelector(!showEmojiSelector)}
-                className="flex items-center gap-1.5 px-3 py-2 border border-gray-205 dark:border-slate-755 hover:border-emerald-500 rounded-xl text-xs text-gray-600 dark:text-slate-350 bg-gray-50 dark:bg-slate-900 cursor-pointer hover:bg-emerald-50/20"
+                className="flex items-center gap-1.5 px-3 py-2 border border-gray-205 hover:border-emerald-500 rounded-xl text-xs text-gray-600 bg-white cursor-pointer hover:bg-emerald-50/20"
               >
-                <Smile className="h-4.5 w-4.5 text-amber-550 text-amber-500" />
+                <Smile className="h-4.5 w-4.5 text-amber-500" />
                 <span className="font-bold text-[10px]">Emoji</span>
               </button>
             </div>

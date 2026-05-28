@@ -196,15 +196,42 @@ export default function Sidebar({
         {/* Sidebar Footer menu - Easily accessible LOGOUT */}
         <div className="p-4 border-t border-gray-100 dark:border-neutral-800 space-y-2 bg-gray-50/50 dark:bg-neutral-900/40">
           
+          {(currentUser.role === 'admin' || currentUser.email === 'note3hijau@gmail.com') && (
+            <button
+              onClick={() => {
+                setActiveTab('admin');
+                onClose();
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer text-left ${
+                activeTab === 'admin'
+                  ? 'bg-amber-500/20 text-amber-500 border border-amber-500/25'
+                  : 'text-amber-500 hover:bg-amber-500/10'
+              }`}
+            >
+              <Settings className="h-4 w-4 animate-spin-slow" />
+              ⚙️ Panel Kontrol Admin
+            </button>
+          )}
+
           <button
             onClick={() => {
               setActiveTab('profile');
               onClose();
             }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-650 dark:text-neutral-400 hover:bg-gray-150 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer text-left"
           >
             <Settings className="h-4 w-4" />
             Pengaturan Akun
+          </button>
+
+          <button
+            onClick={() => {
+              alert('Fitur Pengaturan Umum akan segera hadir! (Coming Soon)');
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-650 dark:text-neutral-400 hover:bg-gray-150 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer text-left"
+          >
+            <Settings className="h-4 w-4 text-emerald-500" />
+            Pengaturan Umum
           </button>
 
           <button

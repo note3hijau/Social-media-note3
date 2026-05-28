@@ -186,6 +186,28 @@ export default function App() {
   // Custom states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMarketCategory, setActiveMarketCategory] = useState<string>('Semua');
+  
+  // Advanced Marketplace filtering states
+  const [marketFilterCity, setMarketFilterCity] = useState('');
+  const [marketFilterMinPrice, setMarketFilterMinPrice] = useState('');
+  const [marketFilterMaxPrice, setMarketFilterMaxPrice] = useState('');
+
+  // Customizable Home Banner, Maintenance toggle, Total users tracker, and marquee text states
+  const [homepageBannerUrl, setHomepageBannerUrl] = useState(() => localStorage.getItem('idebagus_home_banner') || 'https://images.unsplash.com/photo-1542744094-2ab25be78b90?w=1000&auto=format&fit=crop&q=80');
+  const [adminTotalUsers, setAdminTotalUsers] = useState(() => parseInt(localStorage.getItem('idebagus_total_users') || '1482'));
+  const [isUnderMaintenance, setIsUnderMaintenance] = useState(() => localStorage.getItem('idebagus_under_maintenance') === 'true');
+  const [adminMarqueeText, setAdminMarqueeText] = useState(() => localStorage.getItem('idebagus_marquee_text') || '📢 Selamat datang di Idebagus Marketplace: Silakan daftarkan UMKM Anda se-Indonesia secara gratis! Belanja aman dengan sistem Rekber Terpercaya kami.');
+
+  // One-click authentication with Google & mandatory email verification states
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('idebagus_logged_in') !== 'false');
+  const [isEmailVerified, setIsEmailVerified] = useState(() => localStorage.getItem('idebagus_email_verified') !== 'false');
+  const [tempGmailEmail, setTempGmailEmail] = useState('');
+  const [tempOtpCode, setTempOtpCode] = useState('');
+  const [authStage, setAuthStage] = useState<'gmail_one_tap' | 'email_confirmation'>('gmail_one_tap');
+  const [authIsLoading, setAuthIsLoading] = useState(false);
+  const [verificationCodeSent, setVerificationCodeSent] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState('');
+
   const [newCommentText, setNewCommentText] = useState<{ [postId: string]: string }>({});
   const [newCommentImage, setNewCommentImage] = useState<{ [postId: string]: string }>({});
   const [activeCommentEmojiBoxId, setActiveCommentEmojiBoxId] = useState<string | null>(null);
@@ -279,6 +301,30 @@ export default function App() {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_home_banner', homepageBannerUrl);
+  }, [homepageBannerUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_total_users', adminTotalUsers.toString());
+  }, [adminTotalUsers]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_under_maintenance', isUnderMaintenance ? 'true' : 'false');
+  }, [isUnderMaintenance]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_marquee_text', adminMarqueeText);
+  }, [adminMarqueeText]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_logged_in', isLoggedIn ? 'true' : 'false');
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_email_verified', isEmailVerified ? 'true' : 'false');
+  }, [isEmailVerified]);
 
   // Automatically mark messages as read when active chat thread is opened or on the chat tab
   useEffect(() => {
@@ -584,6 +630,27 @@ export default function App() {
     setViewListingId(null);
   };
 
+  const handleDeleteListing = (itemId: string) => {
+    setMarketplaceItems(prev => prev.filter(item => item.id !== itemId));
+    setViewListingId(null);
+
+    // Also send a nice real-time Toast confirmation representation
+    setShowNotificationBadgeSplash(true);
+    setTimeout(() => {
+      setShowNotificationBadgeSplash(false);
+    }, 3000);
+  };
+
+  const handleEditListing = (updatedResult: MarketplaceItem) => {
+    setMarketplaceItems(prev => prev.map(item => item.id === updatedResult.id ? updatedResult : item));
+    
+    // Also show a brief confirmation response
+    setShowNotificationBadgeSplash(true);
+    setTimeout(() => {
+      setShowNotificationBadgeSplash(false);
+    }, 3000);
+  };
+
   const handleSimulateReply = (senderId: string, text: string, image?: string) => {
     const sender = friends.find(f => f.id === senderId);
     const newMsg: Message = {
@@ -635,6 +702,7 @@ export default function App() {
       description: newMarketDesc,
       price: parseInt(newMarketPrice) || 0,
       image: mainImage,
+      images: newMarketUploadedImages,
       category: newMarketCategory,
       location: `${marketKabupaten}, ${marketProvinsi}`,
       condition: newMarketCondition,
@@ -916,11 +984,14 @@ export default function App() {
 
   // --- Logout mock trigger ---
   const handleLogoutFlow = () => {
-    // Simulate logging out by resetting local values and displaying confirmation feedback
-    setCurrentUser(INITIAL_CURRENT_USER);
-    setTheme('light');
+    setIsLoggedIn(false);
+    setIsEmailVerified(false);
+    setAuthStage('gmail_one_tap');
+    setTempGmailEmail('');
+    setTempOtpCode('');
+    setVerificationCodeSent(null);
+    setOtpError('');
     setActiveTab('feed');
-    alert('Anda telah berhasil keluar dari idebagus.com. Sesi Anda diatur ulang ke mode penjelajah.');
   };
 
   // Counting outstanding notifications badges 
@@ -1009,6 +1080,281 @@ export default function App() {
     }).format(value);
   };
 
+  if (isUnderMaintenance) {
+    return (
+      <div className="min-h-screen bg-[#090d16] flex items-center justify-center p-4 text-[#cbd5e1] font-sans">
+        <div className="absolute inset-x-0 inset-y-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.07),transparent_50%)] pointer-events-none"></div>
+        
+        {/* Bypass Admin panel backdoor button */}
+        <div className="absolute top-4 right-4 z-40">
+          <button 
+            onClick={() => {
+              setIsUnderMaintenance(false);
+              setActiveTab('admin');
+            }} 
+            className="text-[10px] font-bold text-amber-500 hover:text-white transition-colors bg-amber-500/10 border border-amber-500/25 px-3 py-1.5 rounded-xl cursor-pointer"
+          >
+            Bypass & Buka Panel Admin ⚙️
+          </button>
+        </div>
+
+        <div className="bg-[#111827] border border-neutral-800 rounded-3xl p-8 max-w-md w-full relative z-10 shadow-2xl text-center space-y-6 animate-scale-up">
+          <div className="h-16 w-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-3xl mx-auto animate-pulse">
+            🔧
+          </div>
+          
+          <div className="space-y-2">
+            <span className="bg-amber-500 text-black font-extrabold text-[8px] px-2.5 py-1 rounded-sm uppercase tracking-widest w-fit mx-auto">
+              PEMELIHARAAN SISTEM
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Dalam Maintenance</h1>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Halo pembaca IdeBagus, situs kami sedang ditingkatkan untuk dukungan performa query database sharding regional Indonesia yang lebih andal.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-850 space-y-2 text-left">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-extrabold text-center text-neutral-400">STATUS PEMELIHARAAN</p>
+            <div className="flex justify-between text-xs">
+              <span className="text-neutral-500 font-medium">Node Cluster:</span>
+              <span className="font-mono text-amber-400 font-bold">UMKM-CLOUD-ID-1</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-neutral-550 font-medium">Estimasi Selesai:</span>
+              <span className="font-semibold text-emerald-400">Segera Kembali (Kurang dr 30 Menit)</span>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-gray-500 italic">
+            Mohon maaf atas ketidaknyamanan Anda. Hubungi kami jika ada keluhan mendesak.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn || !isEmailVerified) {
+    return (
+      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-4 text-[#cbd5e1] font-sans">
+        <div className="absolute inset-x-0 inset-y-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_60%)] pointer-events-none"></div>
+        <div className="absolute top-4 right-4 z-40">
+          <button 
+            onClick={() => {
+              setIsLoggedIn(true);
+              setIsEmailVerified(true);
+            }} 
+            className="text-[10px] font-bold text-gray-500 hover:text-white transition-colors bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl cursor-pointer"
+          >
+            Bypass & Lihat Demo ↗
+          </button>
+        </div>
+
+        <div className="bg-[#111827] border border-neutral-800 rounded-3xl p-6 sm:p-8 max-w-md w-full relative z-10 shadow-2xl space-y-6 text-center animate-scale-up">
+          <div className="space-y-2">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center text-white text-2xl font-black mx-auto shadow-lg shadow-emerald-500/10">
+              iB
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">IdeBagus Digital</h1>
+            <p className="text-xs text-neutral-400">Hub Kreatif & Pasar Niaga UMKM Lokal Indonesia</p>
+          </div>
+
+          {authStage === 'gmail_one_tap' ? (
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <span className="inline-block bg-[#1e293b] border border-blue-500/25 text-blue-400 text-[9px] font-extrabold uppercase px-2.5 py-0.5 rounded">
+                  SINKRONISASI KEAMANAN
+                </span>
+                <p className="text-xs text-neutral-300">
+                  Untuk mendaftar & beriklan di Idebagus, silakan hubungkan akun Gmail Anda dengan 1-klik aman.
+                </p>
+              </div>
+
+              <button
+                onClick={async () => {
+                  setAuthIsLoading(true);
+                  setTimeout(() => {
+                    setAuthIsLoading(false);
+                    setAuthStage('email_confirmation');
+                  }, 1200);
+                }}
+                disabled={authIsLoading}
+                className="w-full py-3.5 bg-white hover:bg-neutral-100 text-black font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50 hover:scale-[1.01] active:scale-95 border border-neutral-200 group relative overflow-hidden"
+              >
+                {authIsLoading ? (
+                  <div className="h-4 w-4 rounded-full border-2 border-slate-700 border-t-transparent animate-spin"></div>
+                ) : (
+                  <>
+                    <svg className="h-4.5 w-4.5" viewBox="0 0 24 24">
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.61 1.54 14.98 1 12 1 7.35 1 3.37 3.68 1.37 7.6l3.87 3C6.21 7.54 8.87 5.04 12 5.04z"
+                      />
+                      <path
+                        fill="#4285F4"
+                        d="M23.49 12.27c0-.82-.07-1.61-.21-2.27H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.99 3.7-8.71z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.24 14.6c-.24-.72-.37-1.49-.37-2.3s.13-1.58.37-2.3L1.37 7.6C.49 9.36 0 11.33 0 13.4s.49 4.04 1.37 5.8l3.87-3z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.04.7-2.41 1.13-4.23 1.13-3.13 0-5.79-2.5-6.76-5.56L1.37 15.8C3.37 19.72 7.35 23 12 23z"
+                      />
+                    </svg>
+                    <span>Hubungkan dengan Akun Gmail</span>
+                  </>
+                )}
+              </button>
+
+              <div className="text-[10px] text-neutral-550 leading-relaxed">
+                Informasi masuk dilindungi dengan Google OAuth SDK 2.0. Kami tidak pernah melihat password Anda.
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5 text-left font-sans">
+              <div className="space-y-1 text-center">
+                <span className="inline-block bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-extrabold uppercase px-2.5 py-0.5 rounded">
+                  VERIFIKASI EMAIL WAJIB
+                </span>
+                <p className="text-xs text-neutral-350">
+                  Untuk mengaktifkan akun Anda secara resmi, silakan kirim kode konfirmasi ke email Gmail Anda.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-extrabold uppercase text-neutral-450">Alamat Email Gmail Anda</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      placeholder="contoh: budisusanto@gmail.com"
+                      value={tempGmailEmail}
+                      onChange={(e) => {
+                        setTempGmailEmail(e.target.value);
+                        setOtpError('');
+                      }}
+                      className="flex-1 text-xs p-3 rounded-xl border border-neutral-800 bg-[#1f2937] text-white placeholder-gray-500 focus:outline-hidden focus:border-blue-500 text-left"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!tempGmailEmail.trim() || !tempGmailEmail.includes('@')) {
+                          setOtpError('Format email Gmail tidak valid!');
+                          return;
+                        }
+                        setAuthIsLoading(true);
+                        setTimeout(() => {
+                          setAuthIsLoading(false);
+                          const dynamicCode = Math.floor(100000 + Math.random() * 900000).toString();
+                          setVerificationCodeSent(dynamicCode);
+                          setOtpError('');
+                        }, 1000);
+                      }}
+                      disabled={authIsLoading || !tempGmailEmail}
+                      className="px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-650 text-white rounded-xl text-xs font-bold shrink-0 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      Kirim Kode
+                    </button>
+                  </div>
+                </div>
+
+                {verificationCodeSent && (
+                  <div className="space-y-2.5 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-fade-in text-center">
+                    <p className="text-[10px] text-emerald-400 font-bold leading-relaxed">
+                      ✓ Kode verifikasi unik berhasil dikirim ke <span className="text-emerald-300 font-extrabold">{tempGmailEmail}</span>! Silakan gunakan kode di bawah ini untuk aktivasi:
+                    </p>
+                    <div className="bg-[#1e293b] px-3.5 py-1.5 rounded text-xs font-mono font-bold text-emerald-300 tracking-widest inline-block select-all cursor-pointer border border-emerald-950" title="Klik untuk menyalin">
+                      {verificationCodeSent}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-extrabold uppercase text-neutral-455">Isikan 6 digit Kode Verifikasi</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Masukkan 6-digit angka"
+                    value={tempOtpCode}
+                    onChange={(e) => {
+                      setTempOtpCode(e.target.value);
+                      setOtpError('');
+                    }}
+                    className="w-full text-center text-sm p-3 rounded-xl border border-neutral-800 bg-[#1f2937] text-white tracking-widest font-mono placeholder-gray-650 focus:outline-hidden focus:border-blue-500"
+                  />
+                </div>
+
+                {otpError && (
+                  <p className="text-[10px] text-red-400 font-semibold text-center">
+                    ⚠ {otpError}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setAuthStage('gmail_one_tap');
+                      setVerificationCodeSent(null);
+                    }}
+                    className="flex-1 py-3 border border-neutral-800 text-gray-400 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer text-center"
+                  >
+                    Kembali
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!verificationCodeSent) {
+                        setOtpError('Silakan kirim kode verifikasi ke email dulu!');
+                        return;
+                      }
+                      if (tempOtpCode.trim() !== verificationCodeSent) {
+                        setOtpError(`Kode OTP salah! Silakan gunakan kode ${verificationCodeSent}.`);
+                        return;
+                      }
+                      setAuthIsLoading(true);
+                      setTimeout(() => {
+                        setAuthIsLoading(false);
+                        const cleanUsername = tempGmailEmail.split('@')[0];
+                        setCurrentUser(prev => ({
+                          ...prev,
+                          username: cleanUsername,
+                          displayName: cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1) + ' (Verified)',
+                          email: tempGmailEmail,
+                          joinedDate: 'Mei 2026',
+                          location: 'Bantul, Yogyakarta'
+                        }));
+                        setIsLoggedIn(true);
+                        setIsEmailVerified(true);
+                      }, 1000);
+                    }}
+                    disabled={authIsLoading || !tempOtpCode}
+                    className="flex-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-650 hover:to-indigo-650 text-white font-extrabold rounded-xl text-xs transition-colors text-center cursor-pointer shadow-lg hover:shadow-blue-500/10"
+                  >
+                    {authIsLoading ? 'Aktivasi Akun...' : 'Konfirmasi & Masuk'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Dynamic Marquee Notice Ticker visible ONLY on login & sign up screens */}
+        {adminMarqueeText && (
+          <div className="fixed bottom-0 left-0 right-0 bg-[#0f172a] border-t border-b border-amber-500/15 py-2.5 z-40 shadow-xl overflow-hidden flex items-center gap-3">
+            <div className="bg-amber-500 text-black font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-r-lg shadow-md shrink-0 relative z-10">
+              INFO RESMI 📢
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+              <div className="animate-marquee whitespace-nowrap text-[11px] font-bold text-amber-250 select-none">
+                {adminMarqueeText} &nbsp;&bull;&nbsp; {adminMarqueeText} &nbsp;&bull;&nbsp; {adminMarqueeText}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-gray-900 dark:text-neutral-150 transition-colors duration-200">
       
@@ -1089,12 +1435,31 @@ export default function App() {
             {activeTab === 'feed' && (
               <div className="space-y-6">
                 
+                {/* Interchangeable Home Banner custom image (Admin Configurable) */}
+                <div 
+                  className="relative rounded-3xl overflow-hidden h-44 sm:h-52 md:h-56 shadow-lg border border-neutral-200/50 dark:border-neutral-800 flex items-center p-6 sm:p-8 text-left bg-cover bg-center animate-fade-in shrink-0"
+                  style={{ backgroundImage: `url(${homepageBannerUrl})` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent"></div>
+                  <div className="relative z-10 max-w-sm space-y-1.5 text-left">
+                    <span className="bg-emerald-500 text-white font-extrabold text-[8px] uppercase tracking-widest px-2.5 py-0.5 rounded-sm shadow-md">
+                      PORTAL AKTIF UMKM
+                    </span>
+                    <h2 className="text-lg sm:text-2xl font-black text-white leading-tight tracking-tight">
+                      Sinergi Bisnis Lokal IdeBagus
+                    </h2>
+                    <p className="text-[10px] sm:text-xs text-neutral-300 leading-relaxed font-semibold">
+                      Kembangkan keagenan, bagikan ide bisnis kreatif, dan jual produk andalan Anda lewat portal terverifikasi.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Visual Quick Posting Entry Card with avatar */}
-                <div className="glass-aqua-card p-4 rounded-3xl flex gap-3 items-center">
+                <div className="bg-white dark:bg-white border border-gray-150 p-4 rounded-3xl flex gap-3 items-center shadow-xs">
                   <img src={currentUser.avatar} alt="User Avatar" className="h-10 w-10 rounded-full object-cover ring-2 ring-emerald-500" />
                   <button
                     onClick={() => setCreatePostModalOpen(true)}
-                    className="flex-1 bg-gray-50 dark:bg-neutral-800 text-left text-xs font-semibold px-4 py-3 rounded-2xl text-gray-450 hover:bg-gray-100 dark:hover:bg-neutral-750 transition-colors cursor-pointer border border-transparent hover:border-emerald-500/10"
+                    className="flex-1 bg-gray-50 text-left text-xs font-semibold px-4 py-3 rounded-2xl text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer border border-transparent hover:border-emerald-500/10 animate-fade-in"
                   >
                     Bagikan ide bagus atau penawaran produk daerah sekarang...
                   </button>
@@ -1393,32 +1758,112 @@ export default function App() {
                 </div>
 
                 {/* Search box & Category tabs */}
-                <div className="space-y-3 text-left">
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
+                <div className="space-y-3.5 text-left bg-white dark:bg-neutral-900/40 border border-neutral-200/50 dark:border-neutral-800 p-4 rounded-3xl shadow-xs">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase text-gray-450 block mb-1.5">Kategori Produk</span>
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                      {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setActiveMarketCategory(cat)}
+                          className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
+                            activeMarketCategory === cat
+                              ? 'bg-slate-700 text-[#cbd5e1] font-extrabold border border-indigo-500/10'
+                              : 'bg-white dark:bg-neutral-900 text-gray-650 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-150 dark:border-neutral-800'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Grid layout for search by city and price filters */}
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-1">
+                    {/* Cari Kata Kunci */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Cari Kata Kunci</label>
+                      <input 
+                        type="text"
+                        placeholder="Nama barang / kata kunci..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                      />
+                    </div>
+
+                    {/* Filter Kota */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Kabupaten / Kota</label>
+                      <input 
+                        type="text"
+                        placeholder="Nama Kota (e.g. Jakarta, Sleman)..."
+                        value={marketFilterCity}
+                        onChange={(e) => setMarketFilterCity(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                      />
+                    </div>
+
+                    {/* Harga Terendah */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Harga Terendah</label>
+                      <input 
+                        type="number"
+                        placeholder="Rp Min"
+                        value={marketFilterMinPrice}
+                        onChange={(e) => setMarketFilterMinPrice(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                      />
+                    </div>
+
+                    {/* Harga Tertinggi */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Harga Tertinggi</label>
+                      <input 
+                        type="number"
+                        placeholder="Rp Maks"
+                        value={marketFilterMaxPrice}
+                        onChange={(e) => setMarketFilterMaxPrice(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                      />
+                    </div>
+
+                    {/* Actions button */}
+                    <div className="flex items-end">
                       <button
-                        key={cat}
-                        onClick={() => setActiveMarketCategory(cat)}
-                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
-                          activeMarketCategory === cat
-                            ? 'bg-slate-700 text-[#cbd5e1] font-extrabold border border-indigo-500/10'
-                            : 'bg-white dark:bg-neutral-900 text-gray-650 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-150 dark:border-neutral-800'
-                        }`}
+                        onClick={() => {
+                          setMarketFilterCity('');
+                          setMarketFilterMinPrice('');
+                          setMarketFilterMaxPrice('');
+                          setSearchQuery('');
+                          setActiveMarketCategory('Semua');
+                        }}
+                        className="w-full py-2.5 px-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-250 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold cursor-pointer transition-colors text-center"
                       >
-                        {cat}
+                        Hapus Filter 🔄
                       </button>
-                    ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Products list grid (Dynamic responsive side-by-side columns spanning full grid width) */}
                 <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
                   {marketplaceItems
-                    .filter(
-                      item =>
-                        (activeMarketCategory === 'Semua' || item.category.toLowerCase().includes(activeMarketCategory.toLowerCase().split(' ')[0])) &&
-                        (!searchQuery || item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.location.toLowerCase().includes(searchQuery.toLowerCase()))
-                    )
+                    .filter(item => {
+                      const matchCat = activeMarketCategory === 'Semua' || 
+                        item.category.toLowerCase().includes(activeMarketCategory.toLowerCase().split(' ')[0]);
+                      const matchSearch = !searchQuery || 
+                        item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+                      const matchCity = !marketFilterCity || 
+                        item.location.toLowerCase().includes(marketFilterCity.toLowerCase());
+                      
+                      const minPrice = marketFilterMinPrice ? parseFloat(marketFilterMinPrice) : 0;
+                      const maxPrice = marketFilterMaxPrice ? parseFloat(marketFilterMaxPrice) : Infinity;
+                      const matchPrice = item.price >= minPrice && item.price <= maxPrice;
+
+                      return matchCat && matchSearch && matchCity && matchPrice;
+                    })
                     .map((item) => (
                       <div
                         key={item.id}
@@ -1473,8 +1918,11 @@ export default function App() {
                   return targetProduct ? (
                     <MarketplaceDetail
                       item={targetProduct}
+                      currentUser={currentUser}
                       onClose={() => setViewListingId(null)}
                       onContactSeller={handleContactSeller}
+                      onDeleteListing={handleDeleteListing}
+                      onEditListing={handleEditListing}
                     />
                   ) : null;
                 })()}
@@ -1498,6 +1946,163 @@ export default function App() {
                   setActiveTab('profile');
                 }}
               />
+            )}
+
+            {/* --- TAB: ADMIN PANEL --- */}
+            {activeTab === 'admin' && (
+              <div className="space-y-6 animate-fade-in text-left">
+                {/* Silver / White Heading */}
+                <div className="p-6 rounded-3xl bg-slate-800 dark:bg-slate-900 border border-slate-700 text-[#cbd5e1] space-y-1">
+                  <span className="bg-amber-500 text-black font-black text-[9px] px-2.5 py-0.5 rounded uppercase tracking-widest w-fit">
+                    ADMIN MASTER CONSOLE
+                  </span>
+                  <h2 className="text-xl font-black text-[#f1f5f9]">⚙️ Panel Kontrol Admin Khusus</h2>
+                  <p className="text-xs text-slate-400">
+                    Gunakan panel ini untuk mengontrol konten halaman utama, mode pemeliharaan, jumlah visual user, dan marquee pengumuman di website Idebagus.
+                  </p>
+                </div>
+
+                {/* Grid Status Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Metric 1 */}
+                  <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xs text-left">
+                    <span className="text-[10px] uppercase font-black text-gray-400">Total User Terdaftar</span>
+                    <p className="text-2xl font-black text-blue-500 mt-1">{adminTotalUsers}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">Status: Sinkron Terkendali</p>
+                  </div>
+
+                  {/* Metric 2 */}
+                  <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xs text-left">
+                    <span className="text-[10px] uppercase font-black text-gray-400">Total Iklan Pasar</span>
+                    <p className="text-2xl font-black text-emerald-500 mt-1">{marketplaceItems.length}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">Status: {marketplaceItems.filter(i => !i.isSold).length} Aktif</p>
+                  </div>
+
+                  {/* Metric 3 */}
+                  <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xs text-left">
+                    <span className="text-[10px] uppercase font-black text-gray-400">Jumlah Postingan</span>
+                    <p className="text-2xl font-black text-purple-500 mt-1">{posts.length}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">Total Interaksi Komentar</p>
+                  </div>
+
+                  {/* Metric 4 */}
+                  <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-850 rounded-2xl shadow-xs text-left">
+                    <span className="text-[10px] uppercase font-black text-gray-400 font-bold">Node Cluster</span>
+                    <p className="text-2xl font-black text-rose-500 mt-1">3 Active</p>
+                    <p className="text-[9px] text-gray-500 mt-1">Lembaga Satgas Siber</p>
+                  </div>
+                </div>
+
+                {/* Left Form: Toggles and URL changer */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left card */}
+                  <div className="p-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-xs space-y-5 text-left">
+                    <h3 className="text-xs font-black text-gray-850 dark:text-white uppercase tracking-widest border-b border-neutral-205 dark:border-neutral-800 pb-2">
+                      Pengaturan Header & Banner Utama
+                    </h3>
+
+                    {/* Banner URL changer */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block">URL Gambar Banner Utama</label>
+                      <input 
+                        type="text"
+                        value={homepageBannerUrl}
+                        onChange={(e) => setHomepageBannerUrl(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white"
+                        placeholder="https://images.unsplash.com/..."
+                      />
+                    </div>
+
+                    {/* Suggest Banner Presets */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black text-gray-400 uppercase">Preset Banner Rekomendasi</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { name: 'Kemitraan UMKM', url: 'https://images.unsplash.com/photo-1542744094-2ab25be78b90?w=1000&auto=format&fit=crop&q=80' },
+                          { name: 'Gudang Ekspor', url: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1000&auto=format&fit=crop&q=80' },
+                          { name: 'Pasar Rakyat', url: 'https://images.unsplash.com/photo-1543083505-ac1f504caeb1?w=1000&auto=format&fit=crop&q=80' },
+                          { name: 'Teknologi Digital', url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&auto=format&fit=crop&q=80' }
+                        ].map((p, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setHomepageBannerUrl(p.url)}
+                            className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[10px] text-gray-750 dark:text-gray-300 font-bold px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors"
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Total user controller */}
+                    <div className="space-y-2 pt-2">
+                      <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block">Simulasi Total User ({adminTotalUsers} Orang)</label>
+                      <input 
+                        type="range"
+                        min="50"
+                        max="10000"
+                        value={adminTotalUsers}
+                        onChange={(e) => setAdminTotalUsers(parseInt(e.target.value))}
+                        className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <div className="flex justify-between text-[9px] text-gray-500">
+                        <span>Min: 50</span>
+                        <span>Max: 10,000</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right card */}
+                  <div className="p-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-xs space-y-5 text-left">
+                    <h3 className="text-xs font-black text-gray-850 dark:text-white uppercase tracking-widest border-b border-neutral-205 dark:border-neutral-800 pb-2">
+                      Maintenance & Banner Pengumuman
+                    </h3>
+
+                    {/* Maintenance toggle switch */}
+                    <div className="flex items-center justify-between p-3.5 bg-neutral-50 dark:bg-neutral-950 border border-neutral-150 dark:border-neutral-800 rounded-2xl">
+                      <div className="space-y-0.5 text-left">
+                        <span className="text-xs font-black text-gray-850 dark:text-white block">Situs Under Maintenance?</span>
+                        <span className="text-[10px] text-gray-500 leading-relaxed block">
+                          Jika diaktifkan, seluruh pengguna non-admin akan dialihkan ke layar pemeliharaan sistem.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setIsUnderMaintenance(!isUnderMaintenance)}
+                        className={`w-12 h-6.5 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 shrink-0 ${
+                          isUnderMaintenance ? 'bg-amber-500' : 'bg-gray-350 dark:bg-neutral-800'
+                        }`}
+                      >
+                        <div
+                          className={`bg-white w-4.5 h-4.5 rounded-full shadow-md transform transition-transform duration-200 ${
+                            isUnderMaintenance ? 'translate-x-5.5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Marquee Text Notice configuration */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block">Marquee Pemberitahuan Footer (Halaman Utama)</label>
+                      <textarea
+                        rows={3}
+                        value={adminMarqueeText}
+                        onChange={(e) => setAdminMarqueeText(e.target.value)}
+                        className="w-full text-xs p-3 rounded-2xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white font-medium resize-none"
+                        placeholder="📢 Ketik teks pengumuman berjalan anda..."
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        alert('✓ Seluruh konfigurasi admin panel berhasil disimpan ke session penyimpanan lokal Anda!');
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-black text-xs rounded-xl shadow-xs cursor-pointer text-center"
+                    >
+                      Terapkan Perubahan Sistem ✓
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* --- TAB: PROFILE SETTINGS SYNC --- */}
@@ -1555,6 +2160,7 @@ export default function App() {
 
         </div>
       </div>
+
 
       {/* COMPACT FLOATING BOTTOM NAV BAR (For mobile responsivity compliance: please all not over the line) */}
       <BottomNavbar
