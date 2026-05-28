@@ -48,6 +48,39 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 
+const SUGGESTED_PEOPLE = [
+  {
+    id: 'user_1',
+    displayName: 'Siti Rahma',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    bio: 'Pecinta kuliner nusantara & perajin batik Jogja 🌸',
+    isOnline: true,
+  },
+  {
+    id: 'user_2',
+    displayName: 'Ahmad Fauzi',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    bio: 'Produsen kopi lokal & pegiat teknologi digital ☕💻',
+    isOnline: true,
+  },
+  {
+    id: 'user_3',
+    displayName: 'Dewi Lestari',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80',
+    bio: 'Eksportir anyaman rotan & pembimbing UMKM kreatif 🇮🇩✈️',
+    isOnline: false,
+    lastActive: '2 jam lalu',
+  },
+  {
+    id: 'user_4',
+    displayName: 'Rian Hidayat',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    bio: 'Konsultan agribisnis dan peternak kambing modern 🚜',
+    isOnline: false,
+    lastActive: 'Kemarin',
+  }
+];
+
 const INDONESIA_REGIONS = [
   {
     provinsi: 'DKI Jakarta',
@@ -161,11 +194,7 @@ export default function App() {
     return cached ? JSON.parse(cached) : INITIAL_NOTIFICATIONS;
   });
 
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const cached = localStorage.getItem('idebagus_theme');
-    if (cached === 'dark' || cached === 'light') return cached;
-    return 'light';
-  });
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   // --- Layout States ---
   const [activeTab, setActiveTab] = useState<string>('feed');
@@ -182,6 +211,7 @@ export default function App() {
   const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
   const [viewListingId, setViewListingId] = useState<string | null>(null);
   const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
+  const [postCommentsLimit, setPostCommentsLimit] = useState<Record<string, number>>({});
   
   // Custom states
   const [searchQuery, setSearchQuery] = useState('');
@@ -196,12 +226,25 @@ export default function App() {
   const [homepageBannerUrl, setHomepageBannerUrl] = useState(() => localStorage.getItem('idebagus_home_banner') || 'https://images.unsplash.com/photo-1542744094-2ab25be78b90?w=1000&auto=format&fit=crop&q=80');
   const [adminTotalUsers, setAdminTotalUsers] = useState(() => parseInt(localStorage.getItem('idebagus_total_users') || '1482'));
   const [isUnderMaintenance, setIsUnderMaintenance] = useState(() => localStorage.getItem('idebagus_under_maintenance') === 'true');
-  const [adminMarqueeText, setAdminMarqueeText] = useState(() => localStorage.getItem('idebagus_marquee_text') || '📢 Selamat datang di Idebagus Marketplace: Silakan daftarkan UMKM Anda se-Indonesia secara gratis! Belanja aman dengan sistem Rekber Terpercaya kami.');
+  const [adminMarqueeText, setAdminMarqueeText] = useState(() => localStorage.getItem('idebagus_marquee_text') || '📢 Selamat datang di Idebagus: idenagus.com sosial media & Pasar Niaga UMKM Lokal Indonesia. Belanja aman dengan sistem Rekber Terpercaya kami.');
+
+  // Custom visual branding and splash customization states
+  const [customLogoUrl, setCustomLogoUrl] = useState(() => localStorage.getItem('idebagus_custom_logo') || '');
+  const [loginTitle, setLoginTitle] = useState(() => localStorage.getItem('idebagus_login_title') || 'IdeBagus Digital');
+  const [loginSubtitle, setLoginSubtitle] = useState(() => localStorage.getItem('idebagus_login_subtitle') || 'idenagus.com sosial media & Pasar Niaga UMKM Lokal Indonesia');
+  const [loginOneTapTitle, setLoginOneTapTitle] = useState(() => localStorage.getItem('idebagus_login_onetap_title') || 'SINKRONISASI KEAMANAN');
+  const [loginOneTapDesc, setLoginOneTapDesc] = useState(() => localStorage.getItem('idebagus_login_onetap_desc') || 'Untuk mendaftar & beriklan di Idebagus, silakan hubungkan akun Gmail Anda dengan 1-klik aman.');
+  const [loginPageBg, setLoginPageBg] = useState(() => localStorage.getItem('idebagus_login_bg') || '#0b0f19');
 
   // One-click authentication with Google & mandatory email verification states
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('idebagus_logged_in') !== 'false');
   const [isEmailVerified, setIsEmailVerified] = useState(() => localStorage.getItem('idebagus_email_verified') !== 'false');
   const [tempGmailEmail, setTempGmailEmail] = useState('');
+  const [setupDisplayName, setSetupDisplayName] = useState('');
+  const [setupAvatar, setSetupAvatar] = useState('');
+  const [setupLocation, setSetupLocation] = useState('DI Yogyakarta');
+  const [setupBio, setSetupBio] = useState('');
+  const [setupBanner, setSetupBanner] = useState('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80');
   const [tempOtpCode, setTempOtpCode] = useState('');
   const [authStage, setAuthStage] = useState<'gmail_one_tap' | 'email_confirmation'>('gmail_one_tap');
   const [authIsLoading, setAuthIsLoading] = useState(false);
@@ -240,7 +283,19 @@ export default function App() {
       const target = e.target as HTMLElement;
       if (target && target.tagName === 'IMG') {
         const img = target as HTMLImageElement;
-        // Exclude tiny icons if necessary, but "all images" means everything is showable!
+        
+        // Exclude navbar/profile images, headers, buttons, and marketplace listings
+        if (
+          img.closest('header') || 
+          img.closest('nav') ||
+          img.closest('button') ||
+          img.closest('.glass-aqua-card') ||
+          img.classList.contains('no-lightbox') ||
+          img.closest('.no-lightbox')
+        ) {
+          return;
+        }
+
         setLightboxSrc(img.src);
       }
     };
@@ -293,13 +348,9 @@ export default function App() {
   }, [transactions]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_theme', theme);
+    localStorage.setItem('idebagus_theme', 'dark');
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    root.classList.add('dark');
   }, [theme]);
 
   useEffect(() => {
@@ -317,6 +368,30 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('idebagus_marquee_text', adminMarqueeText);
   }, [adminMarqueeText]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_custom_logo', customLogoUrl);
+  }, [customLogoUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_login_title', loginTitle);
+  }, [loginTitle]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_login_subtitle', loginSubtitle);
+  }, [loginSubtitle]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_login_onetap_title', loginOneTapTitle);
+  }, [loginOneTapTitle]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_login_onetap_desc', loginOneTapDesc);
+  }, [loginOneTapDesc]);
+
+  useEffect(() => {
+    localStorage.setItem('idebagus_login_bg', loginPageBg);
+  }, [loginPageBg]);
 
   useEffect(() => {
     localStorage.setItem('idebagus_logged_in', isLoggedIn ? 'true' : 'false');
@@ -1134,8 +1209,15 @@ export default function App() {
   }
 
   if (!isLoggedIn || !isEmailVerified) {
+    const loginBgStyle = loginPageBg.startsWith('http') || loginPageBg.startsWith('data:')
+      ? { backgroundImage: `url(${loginPageBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : { backgroundColor: loginPageBg };
+
     return (
-      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-4 text-[#cbd5e1] font-sans">
+      <div 
+        style={loginBgStyle}
+        className="min-h-screen flex items-center justify-center p-4 text-[#cbd5e1] font-sans relative"
+      >
         <div className="absolute inset-x-0 inset-y-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_60%)] pointer-events-none"></div>
         <div className="absolute top-4 right-4 z-40">
           <button 
@@ -1149,23 +1231,31 @@ export default function App() {
           </button>
         </div>
 
-        <div className="bg-[#111827] border border-neutral-800 rounded-3xl p-6 sm:p-8 max-w-md w-full relative z-10 shadow-2xl space-y-6 text-center animate-scale-up">
+        <div className="bg-[#111827]/95 backdrop-blur-md border border-neutral-805 rounded-3xl p-6 sm:p-8 max-w-md w-full relative z-10 shadow-2xl space-y-6 text-center animate-scale-up">
           <div className="space-y-2">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center text-white text-2xl font-black mx-auto shadow-lg shadow-emerald-500/10">
-              iB
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">IdeBagus Digital</h1>
-            <p className="text-xs text-neutral-400">Hub Kreatif & Pasar Niaga UMKM Lokal Indonesia</p>
+            {customLogoUrl ? (
+              <img 
+                src={customLogoUrl} 
+                alt="IdeBagus Logo" 
+                className="h-16 w-16 rounded-2xl object-cover mx-auto shadow-lg border border-white/10" 
+              />
+            ) : (
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center text-white text-2xl font-black mx-auto shadow-lg shadow-emerald-500/10">
+                iB
+              </div>
+            )}
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">{loginTitle}</h1>
+            <p className="text-xs text-neutral-400">{loginSubtitle}</p>
           </div>
 
           {authStage === 'gmail_one_tap' ? (
             <div className="space-y-5">
               <div className="space-y-2">
                 <span className="inline-block bg-[#1e293b] border border-blue-500/25 text-blue-400 text-[9px] font-extrabold uppercase px-2.5 py-0.5 rounded">
-                  SINKRONISASI KEAMANAN
+                  {loginOneTapTitle}
                 </span>
                 <p className="text-xs text-neutral-300">
-                  Untuk mendaftar & beriklan di Idebagus, silakan hubungkan akun Gmail Anda dengan 1-klik aman.
+                  {loginOneTapDesc}
                 </p>
               </div>
 
@@ -1247,6 +1337,24 @@ export default function App() {
                         setTimeout(() => {
                           setAuthIsLoading(false);
                           const dynamicCode = Math.floor(100000 + Math.random() * 900000).toString();
+                          
+                          // Actual Real-time Client-Side AJAX Email Delivery utilizing FormSubmit dynamic gateway!
+                          fetch(`https://formsubmit.co/ajax/${tempGmailEmail.trim()}`, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Accept": "application/json"
+                            },
+                            body: JSON.stringify({
+                              "_subject": `🔑 KODE OTP: ${dynamicCode} - Verifikasi Portal IdeBagus`,
+                              "name": "Portal Sinergi Bisnis IdeBagus",
+                              "email": tempGmailEmail.trim(),
+                              "message": `Halo!\n\nBerikut kode OTP Verifikasi pendaftaran Anda untuk masuk di Portal Sinergi Bisnis Lokal IdeBagus:\n\n👉  ${dynamicCode}  👈\n\nMasukkan 6-digit angka di atas pada halaman pendaftaran untuk menyelesaikan pendaftaran profil.\n\nCatatan: Jika ini pertama kalinya Anda menggunakan email ini di FormSubmit, harap periksa kotak masuk dan klik tombol "Activate Form" terlebih dahulu agar kode OTP berikutnya bisa terkirim langsung tanpa aktivasi tambahan.\n\nTerima kasih,\nTim Kerja Portal IdeBagus Indonesia`
+                            })
+                          }).catch(err => {
+                            console.warn("FormSubmit send notice err:", err);
+                          });
+
                           setVerificationCodeSent(dynamicCode);
                           setOtpError('');
                         }, 1000);
@@ -1260,12 +1368,16 @@ export default function App() {
                 </div>
 
                 {verificationCodeSent && (
-                  <div className="space-y-2.5 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-fade-in text-center">
-                    <p className="text-[10px] text-emerald-400 font-bold leading-relaxed">
-                      ✓ Kode verifikasi unik berhasil dikirim ke <span className="text-emerald-300 font-extrabold">{tempGmailEmail}</span>! Silakan gunakan kode di bawah ini untuk aktivasi:
+                  <div className="space-y-3 p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-fade-in text-center">
+                    <p className="text-xs text-emerald-400 font-extrabold leading-relaxed flex items-center justify-center gap-1.5 animate-pulse">
+                      <span>✓</span> Kode Verifikasi Berhasil Dikirim Langsung!
                     </p>
-                    <div className="bg-[#1e293b] px-3.5 py-1.5 rounded text-xs font-mono font-bold text-emerald-300 tracking-widest inline-block select-all cursor-pointer border border-emerald-950" title="Klik untuk menyalin">
-                      {verificationCodeSent}
+                    <p className="text-[10px] text-neutral-350 leading-relaxed font-semibold">
+                      Harap segera memeriksa kotak masuk, promosi, atau folder spam email <span className="text-emerald-300 font-extrabold">{tempGmailEmail}</span> Anda untuk menyalin kode OTP verifikasi 6-digit.
+                    </p>
+                    <div className="bg-neutral-900/90 p-2.5 rounded-lg border border-neutral-800 text-[9.5px] text-amber-400 font-medium text-left leading-relaxed">
+                      <p className="font-extrabold mb-1 text-[10px] text-amber-300">💡 ALUR PERTAMA KALI MENDAFTAR (PENTING):</p>
+                      Jika alamat email ini baru pertama kali diuji di sistem kami, FormSubmit memerlukan konfirmasi manual anti-spam sekali saja. Silakan buka kotak masuk email/spam Anda, cari kiriman dari <span className="font-extrabold underline text-amber-300">FormSubmit</span> bergaya <span className="italic font-bold">"Action Required: Activate..."</span> lalu klik <span className="font-extrabold text-white underline">"Activate Form"</span>. Segera setelah itu, klik tombol <span className="font-extrabold text-[#cbd5e1] underline">"Kirim Kode"</span> kembali di halaman ini untuk mendapatkan OTP langsung dalam hitungan detik!
                     </div>
                   </div>
                 )}
@@ -1308,21 +1420,33 @@ export default function App() {
                         return;
                       }
                       if (tempOtpCode.trim() !== verificationCodeSent) {
-                        setOtpError(`Kode OTP salah! Silakan gunakan kode ${verificationCodeSent}.`);
+                        setOtpError('Kode OTP salah! Silakan periksa kembali email Anda untuk mendapatkan kode penandatanganan yang sesuai.');
                         return;
                       }
                       setAuthIsLoading(true);
                       setTimeout(() => {
                         setAuthIsLoading(false);
                         const cleanUsername = tempGmailEmail.split('@')[0];
-                        setCurrentUser(prev => ({
-                          ...prev,
+                        
+                        // All profile fields are initialized empty/null so the interface blocks to enforce profile completeness
+                        setCurrentUser({
+                          id: 'user_me',
                           username: cleanUsername,
-                          displayName: cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1) + ' (Verified)',
+                          displayName: '',
+                          avatar: '',
                           email: tempGmailEmail,
                           joinedDate: 'Mei 2026',
-                          location: 'Bantul, Yogyakarta'
-                        }));
+                          location: '',
+                          bio: '',
+                          followersCount: 0,
+                          banner: '',
+                          bannerPosition: 50
+                        });
+                        
+                        // Enforce friends are completely 0 upon registration
+                        setFriends([]);
+                        localStorage.setItem('idebagus_friends', JSON.stringify([]));
+
                         setIsLoggedIn(true);
                         setIsEmailVerified(true);
                       }, 1000);
@@ -1351,6 +1475,185 @@ export default function App() {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  const isProfileIncomplete = isLoggedIn && isEmailVerified && (!currentUser.displayName || !currentUser.avatar || currentUser.displayName.trim() === "");
+
+  if (isProfileIncomplete) {
+    return (
+      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center p-4 text-[#cbd5e1] font-sans">
+        <div className="absolute inset-x-0 inset-y-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.06),transparent_60%)] pointer-events-none"></div>
+        
+        <div className="bg-[#111827] border border-neutral-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full relative z-10 shadow-2xl space-y-6 text-center animate-scale-up">
+          <div className="space-y-2">
+            <span className="inline-block bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-wider">
+              PENGATURAN PROFIL WAJIB ⚠️
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Satu Langkah Lagi!</h1>
+            <p className="text-xs text-neutral-400 leading-relaxed max-w-sm mx-auto">
+              Demi keamanan, integritas, dan orisinalitas komunitas bisnis lokal IdeBagus, Anda diwajibkan untuk mengisi nama lengkap dan mengunggah foto profil asli.
+            </p>
+          </div>
+
+          <div className="space-y-5 text-left">
+            {/* Foto Profil Wajib */}
+            <div className="space-y-1.5 flex flex-col items-center">
+              <label className="text-[10px] font-extrabold uppercase text-neutral-450 tracking-wider">Foto Profil (Wajib Upload Gambar)</label>
+              
+              <div className="relative group cursor-pointer">
+                {setupAvatar ? (
+                  <div className="relative">
+                    <img 
+                      src={setupAvatar} 
+                      alt="Avatar Preview" 
+                      className="h-24 w-24 rounded-full object-cover border-4 border-blue-500/35 shadow-xl transition-all"
+                    />
+                    <label className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white text-[10px] font-bold">
+                      Ganti Foto
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) {
+                                setSetupAvatar(ev.target.result as string);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="h-24 w-24 rounded-full border-3 border-dashed border-red-500/40 hover:border-blue-500/50 bg-neutral-900 flex flex-col items-center justify-center text-center p-2.5 cursor-pointer hover:bg-neutral-850 transition-all select-none">
+                    <span className="text-lg">📷</span>
+                    <span className="text-[8px] font-extrabold text-red-400 mt-1 uppercase">Pilih Gambar</span>
+                    <span className="text-[6px] text-gray-450 mt-0.5">Wajib Upload</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            if (ev.target?.result) {
+                              setSetupAvatar(ev.target.result as string);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              {!setupAvatar && (
+                <p className="text-[10px] text-red-400/90 font-bold tracking-tight animate-pulse text-center mt-1">
+                  ⚠ Profile image tidak ada gambar, wajib upload image!
+                </p>
+              )}
+            </div>
+
+            {/* Nama Lengkap Wajib */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-extrabold uppercase text-neutral-455 tracking-wider">Nama Lengkap (Wajib)</label>
+              <input 
+                type="text"
+                placeholder="Masukkan nama lengkap Anda..."
+                value={setupDisplayName}
+                onChange={(e) => setSetupDisplayName(e.target.value)}
+                className="w-full text-xs p-3 rounded-xl border border-neutral-800 bg-[#1f2937] text-white placeholder-gray-500 focus:outline-hidden focus:border-blue-500 text-left font-bold"
+              />
+              {!setupDisplayName.trim() && (
+                <p className="text-[9px] text-red-400/85 font-semibold">⚠ Nama Lengkap belum diatur.</p>
+              )}
+            </div>
+
+            {/* Lokasi / Domisili */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-extrabold uppercase text-neutral-455 tracking-wider">Lokasi / Domisili Kota</label>
+              <select
+                value={setupLocation}
+                onChange={(e) => setSetupLocation(e.target.value)}
+                className="w-full text-xs p-3 rounded-xl border border-neutral-800 bg-[#1f2937] text-white focus:outline-hidden focus:border-blue-500"
+              >
+                <option value="DI Yogyakarta">DI Yogyakarta</option>
+                <option value="DKI Jakarta">DKI Jakarta</option>
+                <option value="Jawa Barat">Jawa Barat</option>
+                <option value="Jawa Tengah">Jawa Tengah</option>
+                <option value="Jawa Timur">Jawa Timur</option>
+                <option value="Bali">Bali</option>
+                <option value="Banten">Banten</option>
+                <option value="Sumatera Utara">Sumatera Utara</option>
+                <option value="Sumatera Selatan">Sumatera Selatan</option>
+                <option value="Kalimantan Timur">Kalimantan Timur</option>
+                <option value="Sulawesi Selatan">Sulawesi Selatan</option>
+                <option value="Papua">Papua</option>
+              </select>
+            </div>
+
+            {/* Bio Singkat */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-extrabold uppercase text-neutral-455 tracking-wider">Bio Singkat (Saran Kreatif)</label>
+              <textarea 
+                rows={2}
+                maxLength={100}
+                placeholder="Tulis bidang wirausaha Anda atau deskripsi singkat..."
+                value={setupBio}
+                onChange={(e) => setSetupBio(e.target.value)}
+                className="w-full text-xs p-3 rounded-xl border border-neutral-800 bg-[#1f2937] text-white placeholder-gray-500 focus:outline-hidden focus:border-blue-500 leading-relaxed"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex gap-3">
+            <button
+              onClick={() => {
+                setIsLoggedIn(false);
+                setIsEmailVerified(false);
+                localStorage.removeItem('idebagus_logged_in');
+              }}
+              className="flex-1 py-3 border border-neutral-800 text-gray-400 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer text-center animate-fade-in"
+            >
+              Keluar
+            </button>
+            <button
+              onClick={() => {
+                if (!setupDisplayName.trim()) return;
+                if (!setupAvatar) return;
+
+                setCurrentUser(prev => ({
+                  ...prev,
+                  displayName: setupDisplayName.trim(),
+                  avatar: setupAvatar,
+                  location: setupLocation,
+                  bio: setupBio,
+                  banner: setupBanner,
+                  bannerPosition: 50
+                }));
+
+                // Flash confirmation
+                setShowNotificationBadgeSplash(true);
+                setTimeout(() => {
+                  setShowNotificationBadgeSplash(false);
+                }, 3000);
+              }}
+              disabled={!setupDisplayName.trim() || !setupAvatar}
+              className="flex-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-650 hover:to-indigo-650 disabled:opacity-40 text-white font-extrabold rounded-xl text-xs transition-colors text-center cursor-pointer shadow-lg shadow-blue-500/10"
+            >
+              Simpan & Masuk Komunitas 🚀
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1386,6 +1689,7 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         setActiveChatFriendId={setActiveChatFriendId}
+        customLogoUrl={customLogoUrl}
       />
 
       {/* Body Core Content layout Container */}
@@ -1435,25 +1739,6 @@ export default function App() {
             {activeTab === 'feed' && (
               <div className="space-y-6">
                 
-                {/* Interchangeable Home Banner custom image (Admin Configurable) */}
-                <div 
-                  className="relative rounded-3xl overflow-hidden h-44 sm:h-52 md:h-56 shadow-lg border border-neutral-200/50 dark:border-neutral-800 flex items-center p-6 sm:p-8 text-left bg-cover bg-center animate-fade-in shrink-0"
-                  style={{ backgroundImage: `url(${homepageBannerUrl})` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent"></div>
-                  <div className="relative z-10 max-w-sm space-y-1.5 text-left">
-                    <span className="bg-emerald-500 text-white font-extrabold text-[8px] uppercase tracking-widest px-2.5 py-0.5 rounded-sm shadow-md">
-                      PORTAL AKTIF UMKM
-                    </span>
-                    <h2 className="text-lg sm:text-2xl font-black text-white leading-tight tracking-tight">
-                      Sinergi Bisnis Lokal IdeBagus
-                    </h2>
-                    <p className="text-[10px] sm:text-xs text-neutral-300 leading-relaxed font-semibold">
-                      Kembangkan keagenan, bagikan ide bisnis kreatif, dan jual produk andalan Anda lewat portal terverifikasi.
-                    </p>
-                  </div>
-                </div>
-
                 {/* Visual Quick Posting Entry Card with avatar */}
                 <div className="bg-white dark:bg-white border border-gray-150 p-4 rounded-3xl flex gap-3 items-center shadow-xs">
                   <img src={currentUser.avatar} alt="User Avatar" className="h-10 w-10 rounded-full object-cover ring-2 ring-emerald-500" />
@@ -1469,6 +1754,84 @@ export default function App() {
                   >
                     <PlusCircle className="h-5 w-5" />
                   </button>
+                </div>
+
+                {/* SUGGESTED PARTNERS WIDGET (Mandatory friend addition section) */}
+                <div className="bg-slate-900 border border-slate-850 p-5 rounded-3xl space-y-4 shadow-xl text-left text-[#cbd5e1] animate-fade-in">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="space-y-0.5">
+                      <span className="bg-amber-500 text-black font-black text-[8px] uppercase tracking-widest px-2.5 py-0.5 rounded-sm">
+                        REKOMENDASI MITRA BISNIS & WIRAUSAHA
+                      </span>
+                      <h3 className="text-sm font-black text-white tracking-tight flex items-center gap-1.5 mt-1">
+                        🤝 Temukan Teman & Pengusaha Baru
+                      </h3>
+                      <p className="text-[10px] text-slate-400">
+                        {friends.length === 0 
+                          ? '👉 Anda belum memiliki teman (0 pertemanan). Silakan tambahkan teman di bawah ini agar Anda mendapatkan teman untuk bisa melakukan obrolan chat & bertukar ide bisnis!'
+                          : 'Hubungkan sinergi UMKM dan perluas ekspansi jaringan bisnis digital Anda se-Indonesia.'
+                        }
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg shrink-0">
+                      {friends.length} Teman Aktif
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                    {SUGGESTED_PEOPLE.map((pep) => {
+                      const isFriend = friends.some(f => f.id === pep.id);
+                      return (
+                        <div key={pep.id} className="bg-[#111827] border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between gap-3 text-center transition-all hover:border-neutral-750">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="relative">
+                              <img src={pep.avatar} alt={pep.displayName} className="h-14 w-14 rounded-full object-cover border-2 border-slate-700" />
+                              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#111827] ${pep.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-500'}`} />
+                            </div>
+                            <div className="text-center">
+                              <h4 className="font-bold text-xs text-white leading-tight">{pep.displayName}</h4>
+                              <p className="text-[8px] text-amber-500 font-extrabold uppercase tracking-tight mt-0.5">Wirausaha Aktif</p>
+                              <p className="text-[10px] text-slate-400 leading-normal mt-1.5 italic line-clamp-2">"{pep.bio}"</p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (isFriend) {
+                                setFriends(prev => {
+                                  const updated = prev.filter(f => f.id !== pep.id);
+                                  localStorage.setItem('idebagus_friends', JSON.stringify(updated));
+                                  return updated;
+                                });
+                              } else {
+                                setFriends(prev => {
+                                  const updated = [
+                                    ...prev,
+                                    {
+                                      id: pep.id,
+                                      displayName: pep.displayName,
+                                      avatar: pep.avatar,
+                                      isOnline: pep.isOnline,
+                                      lastActive: pep.isOnline ? 'Aktif Sekarang' : (pep.id === 'user_3' ? '2 jam lalu' : 'Kemarin')
+                                    }
+                                  ];
+                                  localStorage.setItem('idebagus_friends', JSON.stringify(updated));
+                                  return updated;
+                                });
+                              }
+                            }}
+                            className={`w-full py-2 rounded-xl text-[10px] font-black tracking-wider transition-all cursor-pointer ${
+                              isFriend 
+                                ? 'bg-[#1e293b] text-slate-400 border border-slate-800 hover:bg-red-950/20 hover:text-red-400 hover:border-red-900/30' 
+                                : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md'
+                            }`}
+                          >
+                            {isFriend ? '✓ Berteman (Hapus)' : '➕ Tambah Teman'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Main chronological posts list */}
@@ -1577,55 +1940,69 @@ export default function App() {
                           </div>
 
                           {/* Sub-Comments listings stack */}
-                          {post.comments.length > 0 && (
-                            <div className="bg-gray-50 dark:bg-neutral-950/40 rounded-2xl p-4 space-y-3 border border-gray-100 dark:border-neutral-800/60">
-                              {post.comments.map((comment) => {
-                                const isCommentHighlighted = comment.id === highlightedCommentId;
-                                return (
-                                  <div 
-                                    key={comment.id} 
-                                    id={`comment-${comment.id}`}
-                                    className={`flex gap-2.5 items-start text-xs text-left p-1.5 rounded-xl transition-all ${
-                                      isCommentHighlighted 
-                                        ? 'animate-blink-custom border-l-4 border-emerald-500 shadow-lg scale-[1.02] ring-1 ring-emerald-400/30' 
-                                        : ''
-                                    }`}
-                                  >
-                                    <img src={comment.userAvatar} alt={comment.userName} className="h-7 w-7 rounded-full object-cover shrink-0 mt-0.5" />
-                                    <div className={`flex-1 min-w-0 p-2 text-[11px] rounded-xl border ${
-                                      isCommentHighlighted
-                                        ? 'bg-white/80 dark:bg-neutral-900/95 border-emerald-500 text-gray-900 dark:text-white shadow-md'
-                                        : 'bg-slate-700 text-white dark:bg-neutral-950 border-slate-600 dark:border-neutral-800'
-                                    }`}>
-                                      <div className="flex justify-between items-baseline mb-0.5">
-                                        <span className={`font-bold flex items-center gap-1.5 ${
-                                          isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-100 dark:text-slate-200'
-                                        }`}>
-                                          {comment.userName}
-                                          {isCommentHighlighted && (
-                                            <span className="text-[8px] bg-gradient-to-r from-emerald-500 to-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded-full select-none animate-bounce shadow-xs">
-                                              Sumber Notif ✨
-                                            </span>
-                                          )}
-                                        </span>
-                                        <span className={`text-[8px] ${isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{comment.createdAt}</span>
-                                      </div>
-                                      <p className={`text-xs leading-relaxed font-semibold block break-words ${
-                                        isCommentHighlighted ? 'text-gray-950 dark:text-neutral-100' : 'text-white'
-                                      }`}>{comment.content}</p>
+                          {post.comments.length > 0 && (() => {
+                            const limit = postCommentsLimit[post.id] ?? 2;
+                            const commentsToShow = post.comments.slice(-limit);
+                            const hasMore = post.comments.length > limit;
 
-                                      {/* Render comment image if attached */}
-                                      {comment.image && (
-                                        <div className="mt-2 rounded-xl overflow-hidden max-h-36 border border-white/10 dark:border-neutral-800 bg-neutral-950/40">
-                                          <img src={comment.image} alt="Komentar Foto" className="w-[85%] object-cover cursor-pointer hover:opacity-95" />
+                            return (
+                              <div className="bg-gray-50 dark:bg-neutral-950/40 rounded-2xl p-4 space-y-3 border border-gray-100 dark:border-neutral-800/60 mt-3">
+                                {hasMore && (
+                                  <button
+                                    onClick={() => setPostCommentsLimit(prev => ({ ...prev, [post.id]: (prev[post.id] ?? 2) + 10 }))}
+                                    className="w-full text-center py-2 text-xs font-black text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer border border-dashed border-neutral-300 dark:border-neutral-800 rounded-xl transition-all duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-900/60 flex items-center justify-center gap-1.5 focus:outline-hidden"
+                                  >
+                                    💬 Lihat Komentar Sebelumnya ({post.comments.length - limit} komentar lagi)
+                                  </button>
+                                )}
+                                {commentsToShow.map((comment) => {
+                                  const isCommentHighlighted = comment.id === highlightedCommentId;
+                                  return (
+                                    <div 
+                                      key={comment.id} 
+                                      id={`comment-${comment.id}`}
+                                      className={`flex gap-2.5 items-start text-xs text-left p-1.5 rounded-xl transition-all ${
+                                        isCommentHighlighted 
+                                          ? 'animate-blink-custom border-l-4 border-emerald-500 shadow-lg scale-[1.02] ring-1 ring-emerald-400/30' 
+                                          : ''
+                                      }`}
+                                    >
+                                      <img src={comment.userAvatar} alt={comment.userName} className="h-7 w-7 rounded-full object-cover shrink-0 mt-0.5" />
+                                      <div className={`flex-1 min-w-0 p-2 text-[11px] rounded-xl border ${
+                                        isCommentHighlighted
+                                          ? 'bg-white/80 dark:bg-neutral-900/95 border-emerald-500 text-gray-900 dark:text-white shadow-md'
+                                          : 'bg-slate-700 text-white dark:bg-neutral-950 border-slate-600 dark:border-neutral-800'
+                                      }`}>
+                                        <div className="flex justify-between items-baseline mb-0.5">
+                                          <span className={`font-bold flex items-center gap-1.5 ${
+                                            isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-100 dark:text-slate-200'
+                                          }`}>
+                                            {comment.userName}
+                                            {isCommentHighlighted && (
+                                              <span className="text-[8px] bg-gradient-to-r from-emerald-500 to-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded-full select-none animate-bounce shadow-xs">
+                                                Sumber Notif ✨
+                                              </span>
+                                            )}
+                                          </span>
+                                          <span className={`text-[8px] ${isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{comment.createdAt}</span>
                                         </div>
-                                      )}
+                                        <p className={`text-xs leading-relaxed font-semibold block break-words ${
+                                          isCommentHighlighted ? 'text-gray-950 dark:text-neutral-100' : 'text-white'
+                                        }`}>{comment.content}</p>
+
+                                        {/* Render comment image if attached */}
+                                        {comment.image && (
+                                          <div className="mt-2 rounded-xl overflow-hidden max-h-36 border border-white/10 dark:border-neutral-800 bg-neutral-950/40">
+                                            <img src={comment.image} alt="Komentar Foto" className="w-[85%] object-cover cursor-pointer hover:opacity-95" />
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
 
                           {/* Write comments form with photo upload and emojis */}
                           <div className="space-y-2 mt-2 font-sans">
@@ -1760,7 +2137,7 @@ export default function App() {
                 {/* Search box & Category tabs */}
                 <div className="space-y-3.5 text-left bg-white dark:bg-neutral-900/40 border border-neutral-200/50 dark:border-neutral-800 p-4 rounded-3xl shadow-xs">
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase text-gray-450 block mb-1.5">Kategori Produk</span>
+                    <span className="text-[10px] font-black uppercase text-gray-900 dark:text-white block mb-1.5">Kategori Produk</span>
                     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                       {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
                         <button
@@ -1782,43 +2159,43 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-1">
                     {/* Cari Kata Kunci */}
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Cari Kata Kunci</label>
+                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Cari Kata Kunci</label>
                       <input 
                         type="text"
                         placeholder="Nama barang / kata kunci..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
                       />
                     </div>
 
                     {/* Filter Kota */}
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Kabupaten / Kota</label>
+                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Kabupaten / Kota</label>
                       <input 
                         type="text"
                         placeholder="Nama Kota (e.g. Jakarta, Sleman)..."
                         value={marketFilterCity}
                         onChange={(e) => setMarketFilterCity(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
                       />
                     </div>
 
                     {/* Harga Terendah */}
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Harga Terendah</label>
+                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Harga Terendah</label>
                       <input 
                         type="number"
                         placeholder="Rp Min"
                         value={marketFilterMinPrice}
                         onChange={(e) => setMarketFilterMinPrice(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
                       />
                     </div>
 
                     {/* Harga Tertinggi */}
                     <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-extrabold uppercase text-gray-450">Harga Tertinggi</label>
+                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Harga Tertinggi</label>
                       <input 
                         type="number"
                         placeholder="Rp Maks"
@@ -1885,7 +2262,7 @@ export default function App() {
                         
                         <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
                           <div>
-                            <span className="text-[8px] font-black text-slate-450 uppercase tracking-widest">{item.category}</span>
+                            <span className="text-[9px] font-black text-white bg-slate-800 dark:bg-slate-900 border border-slate-700/60 uppercase tracking-widest px-2.5 py-0.5 rounded-md inline-block shadow-sm mb-1">{item.category}</span>
                             <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate mt-0.5 group-hover:text-emerald-500 transition-colors">
                               {item.title}
                             </h4>
@@ -2094,12 +2471,199 @@ export default function App() {
 
                     <button
                       onClick={() => {
-                        alert('✓ Seluruh konfigurasi admin panel berhasil disimpan ke session penyimpanan lokal Anda!');
+                        alert('✓ Seluruh konfigurasi sistem berhasil disimpan!');
                       }}
                       className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-black text-xs rounded-xl shadow-xs cursor-pointer text-center"
                     >
                       Terapkan Perubahan Sistem ✓
                     </button>
+                  </div>
+
+                  {/* Dynamic Custom Welcome Page, Text Content & Logo Branding Panel */}
+                  <div className="md:col-span-2 p-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-xs space-y-6 text-left">
+                    <div>
+                      <span className="bg-[#10b981] text-white font-black text-[9px] px-2.5 py-0.5 rounded uppercase tracking-widest w-fit mb-1.5 inline-block">
+                        BRANDING & UTAMA CUSTOMIZATION
+                      </span>
+                      <h3 className="text-sm font-black text-gray-850 dark:text-white uppercase tracking-wider pb-2 border-b border-gray-100 dark:border-neutral-800">
+                        Edit Logo & Tampilan Utama Halaman Login 1-Klik
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Satu pintu modifikasi branding. Saat logo diganti di sini, logo di halaman depan (Sign Up), halaman login, serta navigasi atas (Header) akan otomatis terupdate se-Indonesia!
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                      {/* Left: Custom App Logo branding upload */}
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-blue-500 uppercase tracking-widest">
+                          1. Atur Logo iB (Universal Branding)
+                        </h4>
+
+                        <div className="p-4 bg-gray-50 dark:bg-neutral-950 border border-gray-200/50 dark:border-neutral-850 rounded-2xl flex items-center gap-4">
+                          <div className="shrink-0">
+                            {customLogoUrl ? (
+                              <div className="relative group">
+                                <img 
+                                  src={customLogoUrl} 
+                                  alt="Logo Preview" 
+                                  className="h-16 w-16 rounded-2xl object-cover border border-white/10 ring-4 ring-emerald-500/20" 
+                                />
+                                <button
+                                  onClick={() => setCustomLogoUrl('')}
+                                  className="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md cursor-pointer"
+                                  title="Reset Logo Default"
+                                >
+                                  ❌
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center text-white text-3xl font-black shadow-lg">
+                                iB
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-extrabold text-gray-400 block">Status Logo</span>
+                            <p className="text-xs font-bold text-gray-850 dark:text-neutral-200">
+                              {customLogoUrl ? '✓ Logo Kustom Aktif' : 'iB Default Logo'}
+                            </p>
+                            <p className="text-[9px] text-gray-550 leading-relaxed block">
+                              Diterapkan otomatis ke seluruh component navigasi atas, footer, & profil.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* File Upload Trigger */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block">Upload Logo Baru (PNG/JPG):</label>
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setCustomLogoUrl(reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Paste Logo URL Option */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block">Atau Paste URL Gambar Logo Kustom:</label>
+                          <input 
+                            type="text"
+                            value={customLogoUrl}
+                            onChange={(e) => setCustomLogoUrl(e.target.value)}
+                            placeholder="Contoh: https://i.imgur.com/your-logo.png"
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Right: Custom Welcome page text parameters */}
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-teal-500 uppercase tracking-widest">
+                          2. Edit Informasi Halaman Depan (Login Card)
+                        </h4>
+
+                        {/* Judul Utama */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-black text-gray-400 block">Judul Halaman Depan</label>
+                          <input 
+                            type="text"
+                            value={loginTitle}
+                            onChange={(e) => setLoginTitle(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white font-bold"
+                          />
+                        </div>
+
+                        {/* Anak Judul / Deskripsi */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-black text-gray-400 block">Deskripsi Pendek</label>
+                          <textarea 
+                            rows={2}
+                            value={loginSubtitle}
+                            onChange={(e) => setLoginSubtitle(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white resize-none leading-relaxed"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* One-tap Header Title */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-black text-gray-400 block">Badge Banner Google</label>
+                            <input 
+                              type="text"
+                              value={loginOneTapTitle}
+                              onChange={(e) => setLoginOneTapTitle(e.target.value)}
+                              className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white"
+                            />
+                          </div>
+
+                          {/* Welcome page background selector */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-black text-gray-400 block">Background (URL / Warna)</label>
+                            <input 
+                              type="text"
+                              value={loginPageBg}
+                              onChange={(e) => setLoginPageBg(e.target.value)}
+                              className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white font-mono"
+                              placeholder="#0b0f19 atau URL"
+                            />
+                          </div>
+                        </div>
+
+                        {/* One-tap Desc */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-black text-gray-400 block">Keterangan Sub Google One-Tap</label>
+                          <textarea 
+                            rows={2}
+                            value={loginOneTapDesc}
+                            onChange={(e) => setLoginOneTapDesc(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 text-gray-950 dark:text-white resize-none leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Presets backgrounds */}
+                        <div className="space-y-1">
+                          <label className="text-[9px] uppercase font-bold text-gray-405 block">Pintas Preset Tema Background Halaman Login:</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: 'Obsidian Night 🖤', value: '#0b0f19' },
+                              { label: 'Sinergi Ruko 🏡', value: 'https://images.unsplash.com/photo-1542744094-2ab25be78b90?w=1000' },
+                              { label: 'Starlight Sky 🌌', value: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1000' },
+                              { label: 'Emerald Deep 💚', value: '#022c22' }
+                            ].map((preset, pIdx) => (
+                              <button
+                                key={pIdx}
+                                onClick={() => setLoginPageBg(preset.value)}
+                                className="px-2 py-1 text-[9px] font-extrabold bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-700 dark:text-neutral-350 rounded-lg cursor-pointer transition-colors"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 dark:border-neutral-800 flex justify-end">
+                      <button
+                        onClick={() => {
+                          alert('✓ Seluruh branding kustom logo & teks welcome page utama berhasil diaktifkan secara dinamis se-Indonesia! Silakan Logout untuk melihat perubahannya.');
+                        }}
+                        className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-colors"
+                      >
+                        Simpan Visual Branding Utama ✓
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

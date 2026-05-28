@@ -214,27 +214,6 @@ export default function Sidebar({
           )}
 
           <button
-            onClick={() => {
-              setActiveTab('profile');
-              onClose();
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-650 dark:text-neutral-400 hover:bg-gray-150 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer text-left"
-          >
-            <Settings className="h-4 w-4" />
-            Pengaturan Akun
-          </button>
-
-          <button
-            onClick={() => {
-              alert('Fitur Pengaturan Umum akan segera hadir! (Coming Soon)');
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-650 dark:text-neutral-400 hover:bg-gray-150 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer text-left"
-          >
-            <Settings className="h-4 w-4 text-emerald-500" />
-            Pengaturan Umum
-          </button>
-
-          <button
             onClick={() => setShowLogoutConfirm(true)}
             className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer text-left focus:outline-hidden"
           >

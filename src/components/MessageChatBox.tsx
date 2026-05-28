@@ -55,6 +55,8 @@ export default function MessageChatBox({
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
 
   const selectedFriend = friends.find(f => f.id === activeChatFriendId);
 
@@ -494,7 +496,7 @@ export default function MessageChatBox({
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <span className="text-[10px] text-amber-600 dark:text-amber-400 font-black animate-pulse bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
-                  Nego Facebook
+                  Tawar Harga • Chat Langsung
                 </span>
               </div>
             </div>
@@ -660,21 +662,79 @@ export default function MessageChatBox({
           {/* Chat input form attached */}
           <div className="p-4 border-t border-gray-150 dark:border-neutral-800 bg-white dark:bg-neutral-900/95 flex gap-2 relative">
             
-            {/* Image attachment file trigger */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-3 bg-gray-100 hover:bg-gray-150 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-500 dark:text-neutral-400 rounded-xl transition-colors cursor-pointer"
-              title="Kirim Foto"
-            >
-              <ImageIcon className="h-4.5 w-4.5" />
-            </button>
+            {/* Image attachment file trigger with dropdown popup menu */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowUploadOptions(!showUploadOptions)}
+                className="p-3 bg-gray-100 hover:bg-gray-150 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-500 dark:text-neutral-400 rounded-xl transition-all cursor-pointer relative"
+                title="Kirim Foto / Jepret Kamera"
+              >
+                <Plus className={`h-4.5 w-4.5 transition-transform duration-200 ${showUploadOptions ? 'rotate-45' : ''}`} />
+              </button>
+
+              {showUploadOptions && (
+                <>
+                  {/* Invisible backdrop helper to close popover */}
+                  <div 
+                    className="fixed inset-0 z-40 bg-transparent" 
+                    onClick={() => setShowUploadOptions(false)}
+                  />
+                  
+                  <div className="absolute bottom-16 left-0 bg-white dark:bg-[#1e293b] border border-gray-150 dark:border-neutral-850 rounded-2xl shadow-2xl p-2.5 z-50 min-w-44 space-y-1 animate-scale-up text-left">
+                    <p className="text-[9px] font-extrabold uppercase text-gray-400 dark:text-neutral-500 px-2 pb-1.5 border-b border-gray-100 dark:border-neutral-800 tracking-wider">
+                      LAMPIRKAN FOTO / KAMERA 📸
+                    </p>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUploadOptions(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold text-gray-750 dark:text-gray-205 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl cursor-pointer text-left"
+                    >
+                      <ImageIcon className="h-4 w-4 text-blue-500" />
+                      <span>📂 Pilih dari Galeri</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUploadOptions(false);
+                        cameraInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold text-gray-750 dark:text-gray-205 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl cursor-pointer text-left"
+                    >
+                      <Camera className="h-4 w-4 text-emerald-500" />
+                      <span>📸 Ambil dari Kamera</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <input 
               type="file" 
               accept="image/*" 
               ref={fileInputRef} 
               className="hidden" 
-              onChange={handleImageAttach} 
+              onChange={(e) => {
+                handleImageAttach(e);
+                setShowUploadOptions(false);
+              }} 
+            />
+
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              ref={cameraInputRef} 
+              className="hidden" 
+              onChange={(e) => {
+                handleImageAttach(e);
+                setShowUploadOptions(false);
+              }} 
             />
 
             {/* Quick emoji pop toggle */}

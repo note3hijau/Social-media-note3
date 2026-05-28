@@ -21,6 +21,7 @@ interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   setActiveChatFriendId: (id: string | null) => void;
+  customLogoUrl?: string;
 }
 
 export default function Header({
@@ -42,6 +43,7 @@ export default function Header({
   searchQuery,
   setSearchQuery,
   setActiveChatFriendId,
+  customLogoUrl,
 }: HeaderProps) {
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
@@ -110,17 +112,25 @@ export default function Header({
         <div className="flex items-center gap-4 flex-1 sm:flex-initial">
           <button 
             onClick={() => setActiveTab('feed')}
-            className="flex items-center gap-2 cursor-pointer focus:outline-hidden"
+            className="flex items-center gap-2.5 cursor-pointer focus:outline-hidden group"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xl shadow-md cursor-pointer">
-              iB
-            </div>
+            {customLogoUrl ? (
+              <img 
+                src={customLogoUrl} 
+                alt="IdeBagus Logo" 
+                className="h-10 w-10 rounded-xl object-cover shadow-lg border border-white/10 group-hover:scale-105 transition-all duration-200" 
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 text-white font-black text-xl shadow-md cursor-pointer group-hover:scale-105 transition-all duration-200">
+                iB
+              </div>
+            )}
             <div className="hidden sm:block text-left">
-              <span className="font-extrabold text-xl tracking-tighter text-blue-600 dark:text-blue-500">
+              <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-[#10b981] via-[#06b6d4] to-[#3b82f6] bg-clip-text text-transparent transition-all duration-300 group-hover:brightness-110">
                 idebagus
               </span>
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block -mt-1 tracking-wider">
-                .com
+              <span className="text-[10px] font-black tracking-widest text-[#f59e0b] uppercase block -mt-1.5 font-mono drop-shadow-sm">
+                .com ✨
               </span>
             </div>
           </button>
@@ -234,15 +244,6 @@ export default function Header({
         {/* Action icons / badgeless quick menu */}
         <div className="flex items-center gap-3">
           
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            title={theme === 'light' ? 'Nyalakan Mode Gelap' : 'Nyalakan Mode Terang'}
-            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300 transition-colors"
-          >
-            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-          </button>
-
           {/* Friend Requests Badge Dropdown */}
           <div ref={requestsDropdownRef} className="relative">
             <button

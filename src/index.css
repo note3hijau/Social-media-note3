@@ -76,5 +76,5 @@ html.dark body {
 
 .animate-marquee {
   display: inline-block;
-  animation: marquee-scroll 20s linear infinite;
+  animation: marquee-scroll 35s linear infinite;
 }

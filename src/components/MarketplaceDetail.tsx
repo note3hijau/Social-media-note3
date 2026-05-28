@@ -331,7 +331,7 @@ export default function MarketplaceDetail({
                 
                 {/* Silver Styled Title Tag / Header Section */}
                 <div className="p-2.5 rounded-xl bg-[#262626] border border-neutral-800 text-neutral-200 flex justify-between items-center">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#cbd5e1]">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white">
                     Kategori • {item.category}
                   </span>
                   <span className="text-[9px] font-black text-white bg-blue-600 px-2 py-0.5 rounded">
@@ -381,7 +381,7 @@ export default function MarketplaceDetail({
                         {item.sellerName}
                         <BadgeCheck className="h-4 w-4 text-blue-500" />
                       </h4>
-                      <p className="text-[9px] text-neutral-450">Pemilik / Penjual Iklan</p>
+                      <p className="text-[10px] text-white font-extrabold uppercase tracking-wide">Pemilik / Penjual Iklan</p>
                     </div>
                   </div>
                   <span className="text-[9px] font-black text-blue-400 bg-blue-950/40 px-2 py-1 rounded-full shrink-0">
