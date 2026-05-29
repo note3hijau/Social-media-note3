@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Post, User } from '../types';
 import { X, Image as ImageIcon, Sparkles, Loader2, Smile, Trash2 } from 'lucide-react';
+import { compressImage } from '../utils/imageCompressor';
 
 interface CreatePostModalProps {
   currentUser: User;
   isOpen: boolean;
   onClose: () => void;
-  onSubmitPost: (content: string, image?: string, location?: string) => void;
+  onSubmitPost: (content: string, images?: string[], location?: string) => void;
 }
 
 const POST_QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡', '✨', '🔥', '🎉', '🚀', '🙌', '💯'];
@@ -16,19 +17,52 @@ export default function CreatePostModal({
   isOpen,
   onClose,
   onSubmitPost,
-}: CreatePostModalProps) {
+ }: CreatePostModalProps) {
   const [content, setContent] = useState('');
-  const [uploadedImage, setUploadedImage] = useState<string | undefined>(undefined);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [showEmojiSelector, setShowEmojiSelector] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    setUploadedImage(objectUrl);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const filesArray = Array.from(files);
+    const maxRemaining = 15 - uploadedImages.length;
+    if (maxRemaining <= 0) {
+      alert("Hanya bisa mengunggah maksimal 15 foto.");
+      return;
+    }
+
+    const filesToProcess = filesArray.slice(0, maxRemaining);
+    let processedCount = 0;
+    const loadedUrls: string[] = [];
+
+    filesToProcess.forEach((file) => {
+      compressImage(file as File)
+        .then((compressedUrl) => {
+          if (compressedUrl) {
+            loadedUrls.push(compressedUrl);
+          }
+          processedCount++;
+          if (processedCount === filesToProcess.length) {
+            setUploadedImages(prev => [...prev, ...loadedUrls]);
+          }
+        })
+        .catch((err) => {
+          console.error("Compression failed:", err);
+          processedCount++;
+          if (processedCount === filesToProcess.length) {
+            setUploadedImages(prev => [...prev, ...loadedUrls]);
+          }
+        });
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = () => {
@@ -37,9 +71,9 @@ export default function CreatePostModal({
     setIsSubmitting(true);
     setTimeout(() => {
       // Submits post with home location dynamically matching user regional preference safely
-      onSubmitPost(content, uploadedImage, currentUser.location.split(',')[0]);
+      onSubmitPost(content, uploadedImages, (currentUser?.location || "Indonesia").split(',')[0]);
       setContent('');
-      setUploadedImage(undefined);
+      setUploadedImages([]);
       setShowEmojiSelector(false);
       setIsSubmitting(false);
       onClose();
@@ -76,7 +110,7 @@ export default function CreatePostModal({
           <div className="text-left">
             <h4 className="font-bold text-xs text-gray-900 dark:text-gray-950">{currentUser.displayName}</h4>
             <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded">
-              {currentUser.location.split(',')[0]}
+              {(currentUser?.location || "Indonesia").split(',')[0]}
             </span>
           </div>
         </div>
@@ -97,16 +131,34 @@ export default function CreatePostModal({
           </div>
 
           {/* Picture Attachment Preview */}
-          {uploadedImage && (
-            <div className="relative rounded-2xl overflow-hidden max-h-48 border border-gray-150 bg-neutral-900 flex items-center justify-center animate-fade-in group">
-              <img src={uploadedImage} alt="Simpanan data gambar" className="w-full object-cover" />
-              <button 
-                onClick={() => setUploadedImage(undefined)}
-                className="absolute top-3 right-3 bg-red-650 hover:bg-red-700 bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-105 cursor-pointer"
-                title="Batalkan Foto"
-              >
-                <X className="h-4 w-4" />
-              </button>
+          {uploadedImages.length > 0 && (
+            <div className="space-y-1.5 animate-fade-in text-left">
+              <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase">
+                <span>Kolase Foto Terpilih ({uploadedImages.length}/15)</span>
+                <button 
+                  onClick={() => setUploadedImages([])}
+                  className="text-rose-500 hover:text-rose-600 transition-colors uppercase cursor-pointer text-[10px] font-black"
+                >
+                  Hapus Semua
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2 bg-gray-50/50 dark:bg-neutral-50/5 p-2 rounded-2xl border border-gray-150 max-h-48 overflow-y-auto scrollbar-none">
+                {uploadedImages.map((img, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group border border-gray-200 bg-neutral-900">
+                    <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white p-1 rounded-full shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                      title="Hapus foto ini"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-0 inset-x-0 bg-black/40 text-[8px] text-white text-center font-bold font-mono py-0.5">
+                      {idx + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -142,11 +194,12 @@ export default function CreatePostModal({
                 title="Unggah Gambar Kustom"
               >
                 <ImageIcon className="h-4.5 w-4.5 text-emerald-500" />
-                <span className="font-bold text-[10px]">Tambahkan Gambar</span>
+                <span className="font-bold text-[10px]">Tambahkan Gambar ({uploadedImages.length}/15)</span>
               </button>
               <input 
                 type="file" 
                 accept="image/*" 
+                multiple
                 ref={fileInputRef} 
                 className="hidden" 
                 onChange={handleImageUploadChange} 

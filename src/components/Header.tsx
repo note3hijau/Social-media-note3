@@ -529,7 +529,7 @@ export default function Header({
               className="h-8 w-8 rounded-full object-cover ring-2 ring-blue-500"
             />
             <span className="hidden md:inline text-xs font-semibold text-gray-700 dark:text-gray-300">
-              {currentUser.displayName.split(' ')[0]}
+              {(currentUser?.displayName || "Pengguna").split(' ')[0]}
             </span>
           </button>
 

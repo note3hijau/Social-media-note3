@@ -9,6 +9,7 @@ interface MarketplaceDetailProps {
   onContactSeller?: (item: MarketplaceItem) => void;
   onDeleteListing: (itemId: string) => void;
   onEditListing: (updatedItem: MarketplaceItem) => void;
+  onTriggerLightbox?: (images: string[], index: number) => void;
 }
 
 export default function MarketplaceDetail({ 
@@ -17,7 +18,8 @@ export default function MarketplaceDetail({
   onClose, 
   onContactSeller,
   onDeleteListing,
-  onEditListing
+  onEditListing,
+  onTriggerLightbox
 }: MarketplaceDetailProps) {
   // Setup slides gallery list (falls back to item.image)
   const slides = item.images && item.images.length > 0 ? item.images : [item.image];
@@ -107,6 +109,12 @@ export default function MarketplaceDetail({
                 <img 
                   src={slides[activeSlideIndex]} 
                   alt={`${item.title} - Foto ${activeSlideIndex + 1}`} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onTriggerLightbox) {
+                      onTriggerLightbox(slides, activeSlideIndex);
+                    }
+                  }}
                   className="max-h-[200px] sm:max-h-[220px] md:max-h-[280px] max-w-full object-contain cursor-zoom-in transition-transform duration-300 hover:scale-105"
                   referrerPolicy="no-referrer"
                 />

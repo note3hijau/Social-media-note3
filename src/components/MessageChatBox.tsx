@@ -3,7 +3,8 @@ import { Friend, Message } from '../types';
 import { 
   Send, MapPin, CheckCheck, Loader2, Sparkles, AlertCircle, Phone, Video, Search, 
   ChevronLeft, MessageSquare, Trash2, Camera, Smile, X, Mic, MicOff, VideoOff, 
-  PhoneOff, Volume2, Plus, Image as ImageIcon, CircleCheck, CornerUpLeft, ShoppingBag 
+  PhoneOff, Volume2, Plus, Image as ImageIcon, CircleCheck, CornerUpLeft, ShoppingBag,
+  MoreVertical, Edit2
 } from 'lucide-react';
 
 interface MessageChatBoxProps {
@@ -15,6 +16,8 @@ interface MessageChatBoxProps {
   activeChatFriendId: string | null;
   setActiveChatFriendId: (id: string | null) => void;
   onDeleteMessages: (messageIds: string[]) => void;
+  onDeleteFriend?: (friendId: string) => void;
+  onRenameFriend?: (friendId: string, newNickname: string) => void;
   onViewProfile: (userId: string) => void;
 }
 
@@ -29,6 +32,8 @@ export default function MessageChatBox({
   activeChatFriendId,
   setActiveChatFriendId,
   onDeleteMessages,
+  onDeleteFriend,
+  onRenameFriend,
   onViewProfile,
 }: MessageChatBoxProps) {
   const [inputText, setInputText] = useState('');
@@ -43,6 +48,12 @@ export default function MessageChatBox({
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [confirmDeleteThread, setConfirmDeleteThread] = useState(false);
+
+  // Hold-to-manage contacts states (for "Tahan Obrolan" functionality)
+  const [contextMenuFriendId, setContextMenuFriendId] = useState<string | null>(null);
+  const [editingNicknameId, setEditingNicknameId] = useState<string | null>(null);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Call simulation states
   const [activeCall, setActiveCall] = useState<{
@@ -64,6 +75,15 @@ export default function MessageChatBox({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeChatFriendId]);
+
+  // Clean up press-and-hold timer on unmount
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+      }
+    };
+  }, []);
 
   // Sync tab folder based on current chat thread type so it is immediately visible
   useEffect(() => {
@@ -195,6 +215,21 @@ export default function MessageChatBox({
     return `${min}:${remSec}`;
   };
 
+  const handleStartHold = (friendId: string) => {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      setContextMenuFriendId(friendId);
+      const f = friends.find(item => item.id === friendId);
+      if (f) setNicknameInput(f.displayName);
+    }, 600); // 600ms hold triggers the context menu!
+  };
+
+  const handleCancelHold = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+    }
+  };
+
   const filteredFriends = friends.filter(friend => {
     // Cross reference messages for marketplace context tag
     const thread = messages.filter(
@@ -269,49 +304,72 @@ export default function MessageChatBox({
                   setIsDeleteMode(false);
                   setSelectedMessageIds([]);
                 }}
-                className={`w-full text-left p-4 flex items-center gap-3 transition-colors cursor-pointer ${
+                onMouseDown={() => handleStartHold(f.id)}
+                onMouseUp={handleCancelHold}
+                onMouseLeave={handleCancelHold}
+                onTouchStart={() => handleStartHold(f.id)}
+                onTouchEnd={handleCancelHold}
+                className={`w-full text-left p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer group relative ${
                   activeChatFriendId === f.id
                     ? 'bg-emerald-50/40 dark:bg-emerald-950/20'
                     : 'hover:bg-gray-50/80 dark:hover:bg-neutral-800/30'
                 }`}
+                title="Tahan lama untuk opsi atau klik titik tiga"
               >
-                <div className="relative shrink-0">
-                  <img src={f.avatar} alt={f.displayName} className="h-11 w-11 rounded-full object-cover border border-emerald-500/10" />
-                  {f.isOnline ? (
-                    <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
-                  ) : (
-                    <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-neutral-400 ring-2 ring-white dark:ring-neutral-900" />
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="relative shrink-0">
+                    <img src={f.avatar} alt={f.displayName} className="h-11 w-11 rounded-full object-cover border border-emerald-500/10" />
+                    {f.isOnline ? (
+                      <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
+                    ) : (
+                      <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-neutral-400 ring-2 ring-white dark:ring-neutral-900" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate">{f.displayName}</h4>
+                        <span className={`text-[8px] font-extrabold uppercase px-1 py-0.5 rounded-sm border ${
+                          f.isOnline 
+                            ? 'text-emerald-500 bg-emerald-500/10 border-emerald-250/20' 
+                            : 'text-neutral-400 bg-neutral-100 dark:bg-neutral-800 border-neutral-300/30'
+                        }`}>
+                          {f.isOnline ? 'Online' : 'Offline'}
+                        </span>
+                        {thread.some(m => m.marketplaceContext !== undefined) && (
+                          <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1 py-0.5 rounded-sm border border-amber-200/50 shrink-0">
+                            PASAR 🛒
+                          </span>
+                        )}
+                      </div>
+                      {lastMsg && <span className="text-[9px] text-gray-400 shrink-0">{lastMsg.createdAt}</span>}
+                    </div>
+                    <p className={`text-[11px] truncate mt-0.5 ${hasUnread ? 'text-emerald-500 font-extrabold' : 'text-gray-500 dark:text-neutral-400'}`}>
+                      {lastMsg ? lastMsg.content : 'Mulai percakapan aman...'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0 z-10">
+                  {/* Options triggers */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setContextMenuFriendId(f.id);
+                      setNicknameInput(f.displayName);
+                    }}
+                    className="p-1 px-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-neutral-800 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
+                    title="Menu Opsi Kontak"
+                  >
+                    <MoreVertical className="h-4.5 w-4.5" />
+                  </div>
+
+                  {/* Show unread green identifier is online or unread messages */}
+                  {hasUnread && (
+                    <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-xs" />
                   )}
                 </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-baseline">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                      <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate">{f.displayName}</h4>
-                      <span className={`text-[8px] font-extrabold uppercase px-1 py-0.5 rounded-sm border ${
-                        f.isOnline 
-                          ? 'text-emerald-500 bg-emerald-500/10 border-emerald-250/20' 
-                          : 'text-neutral-400 bg-neutral-100 dark:bg-neutral-800 border-neutral-300/30'
-                      }`}>
-                        {f.isOnline ? 'Online' : 'Offline'}
-                      </span>
-                      {thread.some(m => m.marketplaceContext !== undefined) && (
-                        <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1 py-0.5 rounded-sm border border-amber-200/50 shrink-0">
-                          PASAR 🛒
-                        </span>
-                      )}
-                    </div>
-                    {lastMsg && <span className="text-[9px] text-gray-400 shrink-0">{lastMsg.createdAt}</span>}
-                  </div>
-                  <p className={`text-[11px] truncate mt-0.5 ${hasUnread ? 'text-emerald-500 font-extrabold' : 'text-gray-500 dark:text-neutral-400'}`}>
-                    {lastMsg ? lastMsg.content : 'Mulai percakapan aman...'}
-                  </p>
-                </div>
-
-                {/* Show unread green identifier is online or unread messages */}
-                {hasUnread && (
-                  <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-xs" />
-                )}
               </button>
             );
           })}
@@ -593,7 +651,7 @@ export default function MessageChatBox({
             {isTyping && (
               <div className="flex justify-start">
                 <div className="bg-white dark:bg-neutral-800 border border-gray-150 dark:border-neutral-750 px-4 py-2 rounded-2xl text-xs flex items-center gap-1.5 rounded-bl-none text-gray-400">
-                  <span className="font-semibold text-gray-500">{selectedFriend.displayName.split(' ')[0]}</span> sedang mengetik
+                  <span className="font-semibold text-gray-500">{(selectedFriend?.displayName || "").split(' ')[0]}</span> sedang mengetik
                   <Loader2 className="h-3 w-3 animate-spin text-emerald-500" />
                 </div>
               </div>
@@ -907,6 +965,100 @@ export default function MessageChatBox({
 
         </div>
       )}
+
+      {/* CONTEXT MENU FOR "TAHAN OBROLAN / OPSI KONTAK" */}
+      {contextMenuFriendId && (() => {
+        const targetF = friends.find(item => item.id === contextMenuFriendId);
+        if (!targetF) return null;
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white dark:bg-[#1e293b] border border-gray-150 dark:border-neutral-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-scale-up text-left">
+              <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-neutral-800">
+                <div className="flex items-center gap-2.5">
+                  <img src={targetF.avatar} alt={targetF.displayName} className="h-8 w-8 rounded-full object-cover" />
+                  <div>
+                    <h3 className="text-xs font-black text-gray-900 dark:text-white">Opsi Percakapan</h3>
+                    <p className="text-[10px] text-gray-400">Hubungan Aman Terverifikasi</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setContextMenuFriendId(null);
+                    setEditingNicknameId(null);
+                  }}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-400 cursor-pointer"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              {editingNicknameId === contextMenuFriendId ? (
+                <div className="space-y-3">
+                  <label className="text-[11px] font-bold text-gray-700 dark:text-gray-300 block">Edit nama panggilan kontak ini:</label>
+                  <input
+                    type="text"
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-750 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-gray-100 focus:outline-hidden focus:border-blue-500"
+                    placeholder="Masukkan nama panggilan baru..."
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingNicknameId(null)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-250 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-650 dark:text-gray-300"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (nicknameInput.trim() && onRenameFriend) {
+                          onRenameFriend(contextMenuFriendId, nicknameInput.trim());
+                        }
+                        setEditingNicknameId(null);
+                        setContextMenuFriendId(null);
+                      }}
+                      className="flex-1 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Simpan Nama ✏️
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setEditingNicknameId(contextMenuFriendId)}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-gray-850 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-800 text-left flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Edit2 className="h-4 w-4 text-blue-500" />
+                    Edit Nama Kontak / Panggilan ✏️
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (onDeleteFriend) {
+                        onDeleteFriend(contextMenuFriendId);
+                      }
+                      setContextMenuFriendId(null);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/25 text-left flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4 text-rose-500" />
+                    Hapus Percakapan & Kontak 🛑
+                  </button>
+
+                  <button
+                    onClick={() => setContextMenuFriendId(null)}
+                    className="w-full py-2.5 text-center rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-neutral-800 mt-2 transition-colors cursor-pointer"
+                  >
+                    Tutup Menu
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

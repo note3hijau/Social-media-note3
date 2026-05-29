@@ -30,6 +30,7 @@ export interface Post {
   userAvatar: string;
   content: string;
   image?: string;
+  images?: string[];
   likes: string[]; // lists of userIds
   comments: Comment[];
   createdAt: string;

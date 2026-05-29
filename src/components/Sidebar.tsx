@@ -130,7 +130,7 @@ export default function Sidebar({
           
           <div className="mt-3 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 p-2.5 rounded-xl text-[10px] text-gray-500">
             <span className="font-bold">Lokasi Toko</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">{currentUser.location.split(',')[0]}</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">{(currentUser?.location || "Indonesia").split(',')[0]}</span>
           </div>
         </div>
 

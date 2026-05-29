@@ -1,4 +1,5 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
+import { compressImage } from './utils/imageCompressor';
 import { User, Post, MarketplaceItem, Friend, FriendRequest, AppNotification, Message, EscrowTransaction } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -39,11 +40,14 @@ import {
   Truck,
   Settings,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
   RefreshCw,
   Sliders,
   ClipboardList,
   Trash2,
+  Edit2,
+  FolderOpen,
   Smile,
   Image as ImageIcon
 } from 'lucide-react';
@@ -158,41 +162,89 @@ const ENRICHED_CATEGORIES = [
 ];
 
 export default function App() {
+  const safeSetItem = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e: any) {
+      console.warn(`[LocalStorage Error] Gagal menyimpan key "${key}":`, e);
+      
+      // Auto-remedy QuotaExceededError by pruning large Base64 images and old entries
+      if (e.name === 'QuotaExceededError' || e.code === 22 || e.number === 0x8007000E) {
+        try {
+          // 1. Aggressively strip images on older posts: keep only the 2 latest intact
+          const postsRaw = localStorage.getItem('idebagus_posts');
+          if (postsRaw) {
+            const parsed = JSON.parse(postsRaw);
+            if (Array.isArray(parsed)) {
+              const pruned = parsed.map((item, idx) => {
+                if (idx > 1) {
+                  return { ...item, image: undefined, images: [] };
+                }
+                return item;
+              });
+              localStorage.setItem('idebagus_posts', JSON.stringify(pruned));
+            }
+          }
+
+          // 2. Aggressively strip images on older marketplace items: keep only the 2 latest intact
+          const marketRaw = localStorage.getItem('idebagus_marketplace');
+          if (marketRaw) {
+            const parsed = JSON.parse(marketRaw);
+            if (Array.isArray(parsed)) {
+              const pruned = parsed.map((item, idx) => {
+                if (idx > 1) {
+                  return { ...item, image: undefined, images: [] };
+                }
+                return item;
+              });
+              localStorage.setItem('idebagus_marketplace', JSON.stringify(pruned));
+            }
+          }
+
+          // 3. Clear non-essential large items
+          localStorage.removeItem('idebagus_notifications');
+          localStorage.removeItem('idebagus_transactions');
+
+          // Retry the original safe writing task
+          localStorage.setItem(key, value);
+        } catch (innerError) {
+          console.error("Deep cache cleanup retry failed:", innerError);
+          // Drop non-essential long chat histories except the 15 latest entries
+          try {
+            const msgRaw = localStorage.getItem('idebagus_messages');
+            if (msgRaw) {
+              const parsed = JSON.parse(msgRaw);
+              if (Array.isArray(parsed) && parsed.length > 15) {
+                localStorage.setItem('idebagus_messages', JSON.stringify(parsed.slice(-15)));
+              }
+            }
+            localStorage.setItem(key, value);
+          } catch (_) {
+            console.warn("Unable to clear enough storage space.");
+          }
+        }
+      }
+    }
+  };
+
+  const safeJsonParse = (key: string, fallback: any) => {
+    try {
+      const cached = localStorage.getItem(key);
+      return cached ? JSON.parse(cached) : fallback;
+    } catch (e) {
+      console.error(`Invalid recovery cache for key ${key}:`, e);
+      return fallback;
+    }
+  };
+
   // --- Persistent Local States ---
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const cached = localStorage.getItem('idebagus_user');
-    return cached ? JSON.parse(cached) : INITIAL_CURRENT_USER;
-  });
-
-  const [posts, setPosts] = useState<Post[]>(() => {
-    const cached = localStorage.getItem('idebagus_posts');
-    return cached ? JSON.parse(cached) : INITIAL_POSTS;
-  });
-
-  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>(() => {
-    const cached = localStorage.getItem('idebagus_marketplace');
-    return cached ? JSON.parse(cached) : INITIAL_MARKETPLACE;
-  });
-
-  const [friends, setFriends] = useState<Friend[]>(() => {
-    const cached = localStorage.getItem('idebagus_friends');
-    return cached ? JSON.parse(cached) : INITIAL_FRIENDS;
-  });
-
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const cached = localStorage.getItem('idebagus_messages');
-    return cached ? JSON.parse(cached) : INITIAL_MESSAGES;
-  });
-
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => {
-    const cached = localStorage.getItem('idebagus_requests');
-    return cached ? JSON.parse(cached) : INITIAL_FRIEND_REQUESTS;
-  });
-
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const cached = localStorage.getItem('idebagus_notifications');
-    return cached ? JSON.parse(cached) : INITIAL_NOTIFICATIONS;
-  });
+  const [currentUser, setCurrentUser] = useState<User>(() => safeJsonParse('idebagus_user', INITIAL_CURRENT_USER));
+  const [posts, setPosts] = useState<Post[]>(() => safeJsonParse('idebagus_posts', INITIAL_POSTS));
+  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>(() => safeJsonParse('idebagus_marketplace', INITIAL_MARKETPLACE));
+  const [friends, setFriends] = useState<Friend[]>(() => safeJsonParse('idebagus_friends', INITIAL_FRIENDS));
+  const [messages, setMessages] = useState<Message[]>(() => safeJsonParse('idebagus_messages', INITIAL_MESSAGES));
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => safeJsonParse('idebagus_requests', INITIAL_FRIEND_REQUESTS));
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => safeJsonParse('idebagus_notifications', INITIAL_NOTIFICATIONS));
 
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
@@ -272,11 +324,31 @@ export default function App() {
   const [marketProvinsi, setMarketProvinsi] = useState('DKI Jakarta');
   const [marketKabupaten, setMarketKabupaten] = useState('Jakarta Selatan');
 
+  // Personal listings batch management states
+  const [marketViewMode, setMarketViewMode] = useState<'all' | 'my'>('all');
+  const [selectedMyAds, setSelectedMyAds] = useState<string[]>([]);
+
   // Chat tracking states
   const [activeChatFriendId, setActiveChatFriendId] = useState<string | null>(null);
 
   // Lightbox view state for all images
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+
+  const handlePrevLightbox = () => {
+    if (lightboxImages.length <= 1) return;
+    const nextIdx = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+    setLightboxIndex(nextIdx);
+    setLightboxSrc(lightboxImages[nextIdx]);
+  };
+
+  const handleNextLightbox = () => {
+    if (lightboxImages.length <= 1) return;
+    const nextIdx = (lightboxIndex + 1) % lightboxImages.length;
+    setLightboxIndex(nextIdx);
+    setLightboxSrc(lightboxImages[nextIdx]);
+  };
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
@@ -297,12 +369,18 @@ export default function App() {
         }
 
         setLightboxSrc(img.src);
+        setLightboxImages([img.src]);
+        setLightboxIndex(0);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setLightboxSrc(null);
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevLightbox();
+      } else if (e.key === 'ArrowRight') {
+        handleNextLightbox();
       }
     };
 
@@ -312,93 +390,93 @@ export default function App() {
       document.removeEventListener('click', handleGlobalClick, true);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [lightboxImages, lightboxIndex]);
 
   // Sync to localStorage
   useEffect(() => {
-    localStorage.setItem('idebagus_user', JSON.stringify(currentUser));
+    safeSetItem('idebagus_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_posts', JSON.stringify(posts));
+    safeSetItem('idebagus_posts', JSON.stringify(posts));
   }, [posts]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_marketplace', JSON.stringify(marketplaceItems));
+    safeSetItem('idebagus_marketplace', JSON.stringify(marketplaceItems));
   }, [marketplaceItems]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_friends', JSON.stringify(friends));
+    safeSetItem('idebagus_friends', JSON.stringify(friends));
   }, [friends]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_messages', JSON.stringify(messages));
+    safeSetItem('idebagus_messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_requests', JSON.stringify(friendRequests));
+    safeSetItem('idebagus_requests', JSON.stringify(friendRequests));
   }, [friendRequests]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_notifications', JSON.stringify(notifications));
+    safeSetItem('idebagus_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_transactions', JSON.stringify(transactions));
+    safeSetItem('idebagus_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_theme', 'dark');
+    safeSetItem('idebagus_theme', 'dark');
     const root = window.document.documentElement;
     root.classList.add('dark');
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_home_banner', homepageBannerUrl);
+    safeSetItem('idebagus_home_banner', homepageBannerUrl);
   }, [homepageBannerUrl]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_total_users', adminTotalUsers.toString());
+    safeSetItem('idebagus_total_users', adminTotalUsers.toString());
   }, [adminTotalUsers]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_under_maintenance', isUnderMaintenance ? 'true' : 'false');
+    safeSetItem('idebagus_under_maintenance', isUnderMaintenance ? 'true' : 'false');
   }, [isUnderMaintenance]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_marquee_text', adminMarqueeText);
+    safeSetItem('idebagus_marquee_text', adminMarqueeText);
   }, [adminMarqueeText]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_custom_logo', customLogoUrl);
+    safeSetItem('idebagus_custom_logo', customLogoUrl);
   }, [customLogoUrl]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_login_title', loginTitle);
+    safeSetItem('idebagus_login_title', loginTitle);
   }, [loginTitle]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_login_subtitle', loginSubtitle);
+    safeSetItem('idebagus_login_subtitle', loginSubtitle);
   }, [loginSubtitle]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_login_onetap_title', loginOneTapTitle);
+    safeSetItem('idebagus_login_onetap_title', loginOneTapTitle);
   }, [loginOneTapTitle]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_login_onetap_desc', loginOneTapDesc);
+    safeSetItem('idebagus_login_onetap_desc', loginOneTapDesc);
   }, [loginOneTapDesc]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_login_bg', loginPageBg);
+    safeSetItem('idebagus_login_bg', loginPageBg);
   }, [loginPageBg]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_logged_in', isLoggedIn ? 'true' : 'false');
+    safeSetItem('idebagus_logged_in', isLoggedIn ? 'true' : 'false');
   }, [isLoggedIn]);
 
   useEffect(() => {
-    localStorage.setItem('idebagus_email_verified', isEmailVerified ? 'true' : 'false');
+    safeSetItem('idebagus_email_verified', isEmailVerified ? 'true' : 'false');
   }, [isEmailVerified]);
 
   // Automatically mark messages as read when active chat thread is opened or on the chat tab
@@ -512,14 +590,19 @@ export default function App() {
   };
 
   // --- Business logic: Social Actions ---
-  const handleCreatePost = (content: string, image?: string, location?: string) => {
+  const handleCreatePost = (content: string, images?: string | string[], location?: string) => {
+    const imagesArray = Array.isArray(images)
+      ? images
+      : (images ? [images] : []);
+
     const newPost: Post = {
       id: 'post_' + Date.now(),
       userId: currentUser.id,
       userName: currentUser.displayName,
       userAvatar: currentUser.avatar,
       content,
-      image,
+      image: imagesArray[0] || undefined,
+      images: imagesArray,
       location,
       likes: [],
       comments: [],
@@ -708,8 +791,20 @@ export default function App() {
   const handleDeleteListing = (itemId: string) => {
     setMarketplaceItems(prev => prev.filter(item => item.id !== itemId));
     setViewListingId(null);
+    setSelectedMyAds(prev => prev.filter(id => id !== itemId));
 
     // Also send a nice real-time Toast confirmation representation
+    setShowNotificationBadgeSplash(true);
+    setTimeout(() => {
+      setShowNotificationBadgeSplash(false);
+    }, 3000);
+  };
+
+  const handleDeleteMultipleListings = (itemIds: string[]) => {
+    setMarketplaceItems(prev => prev.filter(item => !itemIds.includes(item.id)));
+    setSelectedMyAds([]);
+    setViewListingId(null);
+
     setShowNotificationBadgeSplash(true);
     setTimeout(() => {
       setShowNotificationBadgeSplash(false);
@@ -760,6 +855,37 @@ export default function App() {
     setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
   };
 
+  const handleDeleteFriend = (friendId: string) => {
+    // 1. Remove contact/friend
+    setFriends(prev => prev.filter(f => f.id !== friendId));
+    
+    // 2. Clear all messages with this contact
+    setMessages(prev => prev.filter(m => 
+      !(m.senderId === currentUser.id && m.receiverId === friendId) &&
+      !(m.senderId === friendId && m.receiverId === currentUser.id)
+    ));
+    
+    // 3. Reset active chat if active
+    if (activeChatFriendId === friendId) {
+      setActiveChatFriendId(null);
+    }
+
+    // Toast feedback
+    setShowNotificationBadgeSplash(true);
+    setTimeout(() => {
+      setShowNotificationBadgeSplash(false);
+    }, 3000);
+  };
+
+  const handleRenameFriend = (friendId: string, newNickname: string) => {
+    setFriends(prev => prev.map(f => {
+      if (f.id === friendId) {
+        return { ...f, displayName: newNickname };
+      }
+      return f;
+    }));
+  };
+
   // --- Business logic: Marketplace checkout and selling ---
   const handleCreateMarketItem = () => {
     if (!newMarketTitle.trim() || !newMarketPrice.trim()) return;
@@ -800,7 +926,7 @@ export default function App() {
       id: 'n_mkt_sell_' + Date.now(),
       type: 'marketplace',
       title: 'Barang Berhasil Diiklankan',
-      content: `Produk "${newItem.title}" Anda berhasil ditayangkan di region ${newItem.location.split(',')[0]}!`,
+      content: `Produk "${newItem.title}" Anda berhasil ditayangkan di region ${(newItem.location || '').split(',')[0]}!`,
       isRead: false,
       createdAt: 'Baru saja'
     };
@@ -832,24 +958,32 @@ export default function App() {
         clearInterval(interval);
         setMarketUploadProgress(100);
 
-        // Load files as base64 DataURLs
+        // Load files as base64 DataURLs with lightweight canvas compression
         const loadedUrls: string[] = [];
         let processedCount = 0;
 
         for (let i = 0; i < countToLoad; i++) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              loadedUrls.push(event.target.result as string);
-            }
-            processedCount++;
-            if (processedCount === countToLoad) {
-              setNewMarketUploadedImages(prev => [...prev, ...loadedUrls].slice(0, 15));
-              setMarketIsUploading(false);
-              setMarketUploadProgress(null);
-            }
-          };
-          reader.readAsDataURL(files[i]);
+          compressImage(files[i])
+            .then((compressedUrl) => {
+              if (compressedUrl) {
+                loadedUrls.push(compressedUrl);
+              }
+              processedCount++;
+              if (processedCount === countToLoad) {
+                setNewMarketUploadedImages(prev => [...prev, ...loadedUrls].slice(0, 15));
+                setMarketIsUploading(false);
+                setMarketUploadProgress(null);
+              }
+            })
+            .catch((err) => {
+              console.error("Compression failed:", err);
+              processedCount++;
+              if (processedCount === countToLoad) {
+                setNewMarketUploadedImages(prev => [...prev, ...loadedUrls].slice(0, 15));
+                setMarketIsUploading(false);
+                setMarketUploadProgress(null);
+              }
+            });
         }
       } else {
         setMarketUploadProgress(progress);
@@ -1445,7 +1579,7 @@ export default function App() {
                         
                         // Enforce friends are completely 0 upon registration
                         setFriends([]);
-                        localStorage.setItem('idebagus_friends', JSON.stringify([]));
+                        safeSetItem('idebagus_friends', JSON.stringify([]));
 
                         setIsLoggedIn(true);
                         setIsEmailVerified(true);
@@ -1519,13 +1653,9 @@ export default function App() {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              if (ev.target?.result) {
-                                setSetupAvatar(ev.target.result as string);
-                              }
-                            };
-                            reader.readAsDataURL(file);
+                            compressImage(file)
+                              .then(setSetupAvatar)
+                              .catch(err => console.error("Avatar compression failed:", err));
                           }
                         }}
                       />
@@ -1543,13 +1673,9 @@ export default function App() {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            if (ev.target?.result) {
-                              setSetupAvatar(ev.target.result as string);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          compressImage(file)
+                            .then(setSetupAvatar)
+                            .catch(err => console.error("Avatar compression failed:", err));
                         }
                       }}
                     />
@@ -1800,7 +1926,7 @@ export default function App() {
                               if (isFriend) {
                                 setFriends(prev => {
                                   const updated = prev.filter(f => f.id !== pep.id);
-                                  localStorage.setItem('idebagus_friends', JSON.stringify(updated));
+                                  safeSetItem('idebagus_friends', JSON.stringify(updated));
                                   return updated;
                                 });
                               } else {
@@ -1815,7 +1941,7 @@ export default function App() {
                                       lastActive: pep.isOnline ? 'Aktif Sekarang' : (pep.id === 'user_3' ? '2 jam lalu' : 'Kemarin')
                                     }
                                   ];
-                                  localStorage.setItem('idebagus_friends', JSON.stringify(updated));
+                                  safeSetItem('idebagus_friends', JSON.stringify(updated));
                                   return updated;
                                 });
                               }
@@ -1899,15 +2025,154 @@ export default function App() {
                             </p>
                           </div>
 
-                          {/* Content image if has visual illustration */}
-                          {post.image && (
-                            <div 
-                              onClick={() => setLightboxSrc(post.image)}
-                              className="rounded-2xl overflow-hidden h-[250px] w-[250px] border border-gray-150 bg-gray-55 flex items-center justify-center cursor-zoom-in group shadow-xs hover:shadow-md transition-shadow select-none mx-auto sm:mx-0"
-                            >
-                              <img src={post.image} alt="Visual Attachment" className="w-[250px] h-[250px] object-cover duration-300 group-hover:scale-105 transition-transform" />
-                            </div>
-                          )}
+                          {/* Content image collage if has visual illustrations up to 15 images */}
+                          {(() => {
+                            const postImages = post.images && post.images.length > 0 
+                              ? post.images 
+                              : (post.image ? [post.image] : []);
+
+                            if (postImages.length === 0) return null;
+
+                            if (postImages.length === 1) {
+                              return (
+                                <div 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImages(postImages);
+                                    setLightboxIndex(0);
+                                    setLightboxSrc(postImages[0]);
+                                  }}
+                                  className="rounded-3xl overflow-hidden max-h-[360px] border border-gray-150/70 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 flex items-center justify-center cursor-zoom-in group shadow-xs hover:shadow-md transition-all select-none mx-auto sm:mx-0"
+                                >
+                                  <img src={postImages[0]} alt="Visual Attachment" className="w-full h-full max-h-[360px] object-cover duration-350 group-hover:scale-103 transition-transform" />
+                                </div>
+                              );
+                            }
+
+                            if (postImages.length === 2) {
+                              return (
+                                <div className="grid grid-cols-2 gap-2 h-64 rounded-3xl overflow-hidden border border-gray-150/70 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900">
+                                  {postImages.map((src, idx) => (
+                                    <div 
+                                      key={idx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setLightboxImages(postImages);
+                                        setLightboxIndex(idx);
+                                        setLightboxSrc(src);
+                                      }}
+                                      className="relative h-full overflow-hidden cursor-zoom-in group"
+                                    >
+                                      <img src={src} alt="Attachment Grid" className="w-full h-full object-cover duration-300 group-hover:scale-103 transition-transform" />
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            if (postImages.length === 3) {
+                              return (
+                                <div className="grid grid-cols-3 gap-2 h-72 rounded-3xl overflow-hidden border border-gray-150/70 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900">
+                                  <div 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLightboxImages(postImages);
+                                      setLightboxIndex(0);
+                                      setLightboxSrc(postImages[0]);
+                                    }}
+                                    className="col-span-2 relative h-full overflow-hidden cursor-zoom-in group border-r border-gray-150/50 dark:border-neutral-800/10"
+                                  >
+                                    <img src={postImages[0]} alt="Attachment Grid Main" className="w-full h-full object-cover duration-300 group-hover:scale-103 transition-all" />
+                                  </div>
+                                  <div className="col-span-1 grid grid-rows-2 gap-2 h-full">
+                                    {postImages.slice(1, 3).map((src, idx) => (
+                                      <div 
+                                        key={idx}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLightboxImages(postImages);
+                                          setLightboxIndex(idx + 1);
+                                          setLightboxSrc(src);
+                                        }}
+                                        className="relative h-full overflow-hidden cursor-zoom-in group"
+                                      >
+                                        <img src={src} alt="Attachment Grid Sub" className="w-full h-full object-cover duration-300 group-hover:scale-103 transition-all" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            if (postImages.length === 4) {
+                              return (
+                                <div className="grid grid-cols-2 gap-2 h-72 rounded-3xl overflow-hidden border border-gray-150/70 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900">
+                                  {postImages.map((src, idx) => (
+                                    <div 
+                                      key={idx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setLightboxImages(postImages);
+                                        setLightboxIndex(idx);
+                                        setLightboxSrc(src);
+                                      }}
+                                      className="relative h-full overflow-hidden cursor-zoom-in group"
+                                    >
+                                      <img src={src} alt="Attachment Grid item" className="w-full h-full object-cover duration-300 group-hover:scale-103 transition-all" />
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // 5 or more images layout
+                            return (
+                              <div className="grid grid-cols-5 gap-2 h-80 rounded-3xl overflow-hidden border border-gray-150/70 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900">
+                                {/* Main Left Image (takes up 3 cols) */}
+                                <div 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxImages(postImages);
+                                    setLightboxIndex(0);
+                                    setLightboxSrc(postImages[0]);
+                                  }}
+                                  className="col-span-3 relative h-full overflow-hidden cursor-zoom-in group"
+                                >
+                                  <img src={postImages[0]} alt="Grid item main" className="w-full h-full object-cover duration-300 group-hover:scale-103 transition-transform" />
+                                </div>
+                                
+                                {/* Right grid (takes up 2 cols), with up to 4 items stacked */}
+                                <div className="col-span-2 grid grid-cols-2 grid-rows-2 gap-2 h-full">
+                                  {postImages.slice(1, 5).map((src, idx) => {
+                                    const imageIndex = idx + 1;
+                                    const isLastOneShown = idx === 3;
+                                    const totalRemaining = postImages.length - 5;
+                                    
+                                    return (
+                                      <div 
+                                        key={idx}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLightboxImages(postImages);
+                                          setLightboxIndex(imageIndex);
+                                          setLightboxSrc(src);
+                                        }}
+                                        className="relative h-full overflow-hidden cursor-zoom-in group"
+                                      >
+                                        <img src={src} alt="Sub grid item" className="w-full h-full object-cover duration-350 group-hover:scale-103 transition-all" />
+                                        {isLastOneShown && totalRemaining > 0 && (
+                                          <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center text-white p-2">
+                                            <span className="text-sm font-black tracking-tight">{`+${totalRemaining + 1}`}</span>
+                                            <span className="text-[7.5px] font-black uppercase tracking-wider text-neutral-300">Foto Lainnya</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* Action Toolbar buttons */}
                           <div className="flex gap-6 pt-3 border-t border-gray-100 dark:border-neutral-850/70 text-gray-500 dark:text-neutral-450">
@@ -2124,170 +2389,358 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Header title/filters: Keep the buttons aligned and clean */}
-                <div className="flex justify-end text-left">
-                  <button 
-                    onClick={() => setShowSellModal(true)}
-                    className="text-[10.5px] bg-slate-700 hover:bg-slate-650 text-white border border-slate-600 font-extrabold px-3.5 py-2 rounded-xl shrink-0 cursor-pointer"
-                  >
-                    + Pasang Iklan Baru
-                  </button>
-                </div>
-
-                {/* Search box & Category tabs */}
-                <div className="space-y-3.5 text-left bg-white dark:bg-neutral-900/40 border border-neutral-200/50 dark:border-neutral-800 p-4 rounded-3xl shadow-xs">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-gray-900 dark:text-white block mb-1.5">Kategori Produk</span>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                      {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setActiveMarketCategory(cat)}
-                          className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
-                            activeMarketCategory === cat
-                              ? 'bg-slate-700 text-[#cbd5e1] font-extrabold border border-indigo-500/10'
-                              : 'bg-white dark:bg-neutral-900 text-gray-650 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-150 dark:border-neutral-800'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
+                {/* Toggles and stats */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-150 dark:border-neutral-800 pb-3">
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => setMarketViewMode('all')}
+                      className={`pb-2.5 text-xs font-black uppercase tracking-wider relative transition-all cursor-pointer ${
+                        marketViewMode === 'all' 
+                          ? 'text-emerald-500 border-b-2 border-emerald-500 font-bold' 
+                          : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      🛍️ Jelajah Pasar
+                    </button>
+                    <button 
+                      onClick={() => setMarketViewMode('my')}
+                      className={`pb-2.5 text-xs font-black uppercase tracking-wider relative transition-all cursor-pointer ${
+                        marketViewMode === 'my' 
+                          ? 'text-emerald-500 border-b-2 border-emerald-500 font-bold' 
+                          : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      📋 Iklan Saya ({marketplaceItems.filter(i => i.sellerId === currentUser.id).length})
+                    </button>
                   </div>
-
-                  {/* Grid layout for search by city and price filters */}
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-1">
-                    {/* Cari Kata Kunci */}
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Cari Kata Kunci</label>
-                      <input 
-                        type="text"
-                        placeholder="Nama barang / kata kunci..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
-                      />
-                    </div>
-
-                    {/* Filter Kota */}
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Kabupaten / Kota</label>
-                      <input 
-                        type="text"
-                        placeholder="Nama Kota (e.g. Jakarta, Sleman)..."
-                        value={marketFilterCity}
-                        onChange={(e) => setMarketFilterCity(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
-                      />
-                    </div>
-
-                    {/* Harga Terendah */}
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Harga Terendah</label>
-                      <input 
-                        type="number"
-                        placeholder="Rp Min"
-                        value={marketFilterMinPrice}
-                        onChange={(e) => setMarketFilterMinPrice(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
-                      />
-                    </div>
-
-                    {/* Harga Tertinggi */}
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Harga Tertinggi</label>
-                      <input 
-                        type="number"
-                        placeholder="Rp Maks"
-                        value={marketFilterMaxPrice}
-                        onChange={(e) => setMarketFilterMaxPrice(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
-                      />
-                    </div>
-
-                    {/* Actions button */}
-                    <div className="flex items-end">
-                      <button
-                        onClick={() => {
-                          setMarketFilterCity('');
-                          setMarketFilterMinPrice('');
-                          setMarketFilterMaxPrice('');
-                          setSearchQuery('');
-                          setActiveMarketCategory('Semua');
-                        }}
-                        className="w-full py-2.5 px-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-250 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold cursor-pointer transition-colors text-center"
-                      >
-                        Hapus Filter 🔄
-                      </button>
-                    </div>
+                  
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setShowSellModal(true)}
+                      className="text-[10.5px] bg-slate-700 hover:bg-slate-650 text-[#cbd5e1] border border-slate-600 font-extrabold px-3.5 py-1.5 rounded-xl shrink-0 cursor-pointer shadow-xs transition-colors"
+                    >
+                      + Pasang Iklan Baru
+                    </button>
                   </div>
                 </div>
 
-                {/* Products list grid (Dynamic responsive side-by-side columns spanning full grid width) */}
-                <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
-                  {marketplaceItems
-                    .filter(item => {
-                      const matchCat = activeMarketCategory === 'Semua' || 
-                        item.category.toLowerCase().includes(activeMarketCategory.toLowerCase().split(' ')[0]);
-                      const matchSearch = !searchQuery || 
-                        item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        item.description.toLowerCase().includes(searchQuery.toLowerCase());
-                      const matchCity = !marketFilterCity || 
-                        item.location.toLowerCase().includes(marketFilterCity.toLowerCase());
-                      
-                      const minPrice = marketFilterMinPrice ? parseFloat(marketFilterMinPrice) : 0;
-                      const maxPrice = marketFilterMaxPrice ? parseFloat(marketFilterMaxPrice) : Infinity;
-                      const matchPrice = item.price >= minPrice && item.price <= maxPrice;
-
-                      return matchCat && matchSearch && matchCity && matchPrice;
-                    })
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => setViewListingId(item.id)}
-                        className="glass-aqua-card rounded-3xl overflow-hidden group hover:scale-[1.01] transition-all flex flex-col justify-between cursor-pointer text-left shadow-lg"
-                      >
-                        <div className="relative h-40 bg-gray-100 shrink-0">
-                          <img src={item.image} alt={item.title} className="h-full w-full object-cover animate-fade-in" />
-                          {item.isSold ? (
-                            <span className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center text-xs font-black text-white uppercase tracking-wider">
-                               SUDAH HABIS TERJUAL ✔️
-                            </span>
-                          ) : (
-                            <span className="absolute top-2.5 left-2.5 bg-slate-800 border border-slate-700 text-[#cbd5e1] font-extrabold text-[8px] uppercase px-2 py-0.5 rounded-sm">
-                              {item.condition}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
-                          <div>
-                            <span className="text-[9px] font-black text-white bg-slate-800 dark:bg-slate-900 border border-slate-700/60 uppercase tracking-widest px-2.5 py-0.5 rounded-md inline-block shadow-sm mb-1">{item.category}</span>
-                            <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate mt-0.5 group-hover:text-emerald-500 transition-colors">
-                              {item.title}
-                            </h4>
-                            <p className="text-xs sm:text-sm font-black text-slate-750 dark:text-[#f1f5f9] mt-1">
-                              {formatRupiah(item.price)}
-                            </p>
-                          </div>
-                          
-                          <div className="pt-2.5 border-t border-gray-100 dark:border-neutral-850/60 flex items-center justify-between text-[9px] text-gray-400">
-                            <span className="flex items-center gap-0.5 truncate max-w-[120px]">
-                              <MapPin className="h-3 w-3 text-rose-500 shrink-0 inline animate-pulse" />
-                              {item.location.split(',')[0]}
-                            </span>
-                            <span className="font-semibold text-emerald-500 truncate max-w-[90px]">{item.sellerName}</span>
-                          </div>
+                {/* --- MARKET MODE: ALL --- */}
+                {marketViewMode === 'all' && (
+                  <div className="space-y-6 animate-fade-in">
+                    {/* Search box & Category tabs */}
+                    <div className="space-y-3.5 text-left bg-white dark:bg-neutral-900/40 border border-neutral-200/50 dark:border-neutral-800 p-4 rounded-3xl shadow-xs">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-gray-900 dark:text-white block mb-1.5">Kategori Produk</span>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                          {['Semua', 'Elektronik', 'Mebel / Furnitur', 'Olahraga', 'Fashion'].map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => setActiveMarketCategory(cat)}
+                              className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
+                                activeMarketCategory === cat
+                                  ? 'bg-slate-700 text-[#cbd5e1] font-extrabold border border-indigo-500/10'
+                                  : 'bg-white dark:bg-neutral-900 text-gray-650 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-150 dark:border-neutral-800'
+                              }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                </div>
 
-                {marketplaceItems.length === 0 && (
-                  <div className="text-center py-10 text-neutral-405 text-xs">
-                    Belum ada barang lokal yang dipajang.
+                      {/* Grid layout for search by city and price filters */}
+                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-1">
+                        {/* Cari Kata Kunci */}
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Cari Kata Kunci</label>
+                          <input 
+                            type="text"
+                            placeholder="Nama barang / kata kunci..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                          />
+                        </div>
+
+                        {/* Filter Kota */}
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Kabupaten / Kota</label>
+                          <input 
+                            type="text"
+                            placeholder="Nama Kota (e.g. Jakarta, Sleman)..."
+                            value={marketFilterCity}
+                            onChange={(e) => setMarketFilterCity(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                          />
+                        </div>
+
+                        {/* Harga Terendah */}
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Harga Terendah</label>
+                          <input 
+                            type="number"
+                            placeholder="Rp Min"
+                            value={marketFilterMinPrice}
+                            onChange={(e) => setMarketFilterMinPrice(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                          />
+                        </div>
+
+                        {/* Harga Tertinggi */}
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] font-black uppercase text-gray-900 dark:text-white">Harga Tertinggi</label>
+                          <input 
+                            type="number"
+                            placeholder="Rp Maks"
+                            value={marketFilterMaxPrice}
+                            onChange={(e) => setMarketFilterMaxPrice(e.target.value)}
+                            className="w-full text-xs p-2.5 rounded-xl border border-gray-150 dark:border-neutral-800 bg-gray-55 dark:bg-neutral-950 text-gray-900 dark:text-white placeholder-gray-500 font-medium"
+                          />
+                        </div>
+
+                        {/* Actions button */}
+                        <div className="flex items-end">
+                          <button
+                            onClick={() => {
+                              setMarketFilterCity('');
+                              setMarketFilterMinPrice('');
+                              setMarketFilterMaxPrice('');
+                              setSearchQuery('');
+                              setActiveMarketCategory('Semua');
+                            }}
+                            className="w-full py-2.5 px-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-250 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold cursor-pointer transition-colors text-center"
+                          >
+                            Hapus Filter 🔄
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Products list grid (Dynamic responsive side-by-side columns spanning full grid width) */}
+                    <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
+                      {marketplaceItems
+                        .filter(item => {
+                          const matchCat = activeMarketCategory === 'Semua' || 
+                            item.category.toLowerCase().includes((activeMarketCategory || 'Semua').toLowerCase().split(' ')[0]);
+                          const matchSearch = !searchQuery || 
+                            item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            item.description.toLowerCase().includes(searchQuery.toLowerCase());
+                          const matchCity = !marketFilterCity || 
+                            item.location.toLowerCase().includes(marketFilterCity.toLowerCase());
+                          
+                          const minPrice = marketFilterMinPrice ? parseFloat(marketFilterMinPrice) : 0;
+                          const maxPrice = marketFilterMaxPrice ? parseFloat(marketFilterMaxPrice) : Infinity;
+                          const matchPrice = item.price >= minPrice && item.price <= maxPrice;
+
+                          return matchCat && matchSearch && matchCity && matchPrice;
+                        })
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => setViewListingId(item.id)}
+                            className="glass-aqua-card rounded-3xl overflow-hidden group hover:scale-[1.01] transition-all flex flex-col justify-between cursor-pointer text-left shadow-lg"
+                          >
+                            <div className="relative h-40 bg-gray-100 shrink-0">
+                              <img src={item.image} alt={item.title} className="h-full w-full object-cover animate-fade-in" />
+                              {item.isSold ? (
+                                <span className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center text-xs font-black text-white uppercase tracking-wider">
+                                   SUDAH HABIS TERJUAL ✔️
+                                </span>
+                              ) : (
+                                <span className="absolute top-2.5 left-2.5 bg-slate-800 border border-slate-700 text-[#cbd5e1] font-extrabold text-[8px] uppercase px-2 py-0.5 rounded-sm">
+                                  {item.condition}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                              <div>
+                                <span className="text-[9px] font-black text-white bg-slate-800 dark:bg-slate-900 border border-slate-700/60 uppercase tracking-widest px-2.5 py-0.5 rounded-md inline-block shadow-sm mb-1">{item.category}</span>
+                                <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate mt-0.5 group-hover:text-emerald-500 transition-colors">
+                                  {item.title}
+                                </h4>
+                                <p className="text-xs sm:text-sm font-black text-slate-750 dark:text-[#f1f5f9] mt-1">
+                                  {formatRupiah(item.price)}
+                                </p>
+                              </div>
+                              
+                              <div className="pt-2.5 border-t border-gray-100 dark:border-neutral-850/60 flex items-center justify-between text-[9px] text-gray-400">
+                                <span className="flex items-center gap-0.5 truncate max-w-[120px]">
+                                  <MapPin className="h-3 w-3 text-rose-500 shrink-0 inline animate-pulse" />
+                                  {(item.location || "Indonesia").split(',')[0]}
+                                </span>
+                                <span className="font-semibold text-emerald-500 truncate max-w-[90px]">{item.sellerName}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+
+                    {marketplaceItems.length === 0 && (
+                      <div className="text-center py-10 text-neutral-405 text-xs">
+                        Belum ada barang lokal yang dipajang.
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* --- MARKET MODE: MY LISTINGS --- */}
+                {marketViewMode === 'my' && (() => {
+                  const myListings = marketplaceItems.filter(item => item.sellerId === currentUser.id);
+                  const selectedCount = selectedMyAds.length;
+                  const isAllSelected = myListings.length > 0 && selectedCount === myListings.length;
+
+                  return (
+                    <div className="space-y-4 text-left animate-fade-in text-gray-900 dark:text-white">
+                      {/* Stats and multi delete triggers */}
+                      <div className="bg-gray-50 dark:bg-neutral-900/40 border border-gray-150 dark:border-neutral-800 p-4 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="font-bold text-sm text-gray-900 dark:text-white">Pengelola Iklan Mandiri 📋</h4>
+                          <p className="text-xs text-gray-500 dark:text-neutral-400 mt-1">
+                            Anda memiliki total <span className="font-extrabold text-emerald-500 text-sm">{myListings.length}</span> produk aktif tayang di regional Anda.
+                          </p>
+                        </div>
+                        
+                        {/* Multiple Delete / Selection toolbar */}
+                        {myListings.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                            <button
+                              onClick={() => {
+                                if (isAllSelected) {
+                                  setSelectedMyAds([]);
+                                } else {
+                                  setSelectedMyAds(myListings.map(l => l.id));
+                                }
+                              }}
+                              className="px-3 py-1.5 border border-gray-200 dark:border-neutral-750 bg-white dark:bg-neutral-850 hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-700 dark:text-gray-300 rounded-xl text-[11px] font-bold cursor-pointer transition-colors"
+                            >
+                              {isAllSelected ? 'Kosongkan Pilihan' : 'Pilih Semua'}
+                            </button>
+                            
+                            <button
+                              disabled={selectedCount === 0}
+                              onClick={() => {
+                                if (window.confirm(`Apakah Anda yakin ingin menghapus secara permanen ${selectedCount} iklan yang dipilih?`)) {
+                                  handleDeleteMultipleListings(selectedMyAds);
+                                }
+                              }}
+                              className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 disabled:border-transparent text-white border border-rose-600 text-[11px] font-black rounded-xl cursor-pointer transition-all disabled:cursor-not-allowed shadow-md hover:shadow-lg inline-flex items-center gap-1.5"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Hapus Terpilih ({selectedCount})
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Listings list or empty state */}
+                      {myListings.length === 0 ? (
+                        <div className="bg-white dark:bg-neutral-900/40 border border-neutral-200/50 dark:border-neutral-800 p-10 rounded-3xl text-center space-y-4">
+                          <div className="mx-auto w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-850 flex items-center justify-center text-neutral-400">
+                            <FolderOpen className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900 dark:text-white text-sm">Belum Ada Iklan Tayang</h4>
+                            <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                              Dapatkan pelanggan regional sekitarmu dengan mengunggah dan mengiklankan jualan UMKM milikmu sekarang juga gratis!
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowSellModal(true)}
+                            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 font-extrabold text-[#f1f5f9] text-xs rounded-xl cursor-pointer shadow-sm transition-colors"
+                          >
+                            + Mulai Pasang Iklan Sekarang
+                          </button>
+                        </div>
+                      ) : (
+                        /* Listings visual list stack */
+                        <div className="space-y-2.5">
+                          {myListings.map((item) => {
+                            const isSelected = selectedMyAds.includes(item.id);
+                            return (
+                              <div 
+                                key={item.id}
+                                className={`p-4 rounded-3xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                                  isSelected 
+                                    ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-500/60 shadow-md' 
+                                    : 'bg-white dark:bg-neutral-900/40 border-neutral-200/50 dark:border-neutral-800 hover:border-gray-300 dark:hover:border-neutral-700'
+                                }`}
+                              >
+                                {/* Checkbox, photo preview and basic identifiers */}
+                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                  <input 
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      setSelectedMyAds(prev => 
+                                        prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                                      );
+                                    }}
+                                    className="h-4 w-4 rounded text-emerald-500 focus:ring-emerald-400 border-gray-300 shrink-0 cursor-pointer accent-emerald-500"
+                                  />
+                                  
+                                  <div 
+                                    onClick={() => setViewListingId(item.id)}
+                                    className="h-14 w-14 rounded-2xl overflow-hidden bg-neutral-100 shrink-0 border border-gray-150/60 dark:border-neutral-800 cursor-pointer"
+                                  >
+                                    <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                                  </div>
+                                  
+                                  <div className="min-w-0 text-left">
+                                    <span className="text-[8px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-sm">
+                                      {item.category}
+                                    </span>
+                                    <h4 
+                                      onClick={() => setViewListingId(item.id)}
+                                      className="font-bold text-xs text-gray-900 dark:text-white truncate mt-1 cursor-pointer hover:text-emerald-500 transition-colors"
+                                    >
+                                      {item.title}
+                                    </h4>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-[10px] font-bold text-gray-500 dark:text-neutral-450">
+                                        {formatRupiah(item.price)}
+                                      </span>
+                                      <span className="text-[8.5px] font-black uppercase text-gray-400 bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-sm">
+                                        {item.condition}
+                                      </span>
+                                      {item.isSold && (
+                                        <span className="text-[8.5px] font-black text-rose-500 bg-rose-55 dark:bg-rose-950/20 px-1.5 py-0.5 rounded-sm">
+                                          HABIS
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Manage action buttons for this individual listing */}
+                                <div className="flex items-center gap-2 justify-end w-full sm:w-auto shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 dark:border-neutral-800">
+                                  <button
+                                    onClick={() => setViewListingId(item.id)}
+                                    className="px-3.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-700 dark:text-gray-300 font-extrabold text-[11px] rounded-xl cursor-pointer transition-colors flex items-center gap-1"
+                                  >
+                                    <Edit2 className="h-3 w-3 text-amber-500" />
+                                    Lihat / Edit
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Apakah Anda yakin ingin menghapus iklan dagangan ini secara permanen?')) {
+                                        handleDeleteListing(item.id);
+                                      }
+                                    }}
+                                    className="p-1.5 bg-rose-650/10 hover:bg-rose-550/20 text-rose-500 border border-rose-500/20 rounded-xl cursor-pointer transition-all"
+                                    title="Hapus Iklan"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Immersion Lightbox Modal detail popup overlay */}
                 {viewListingId && (() => {
@@ -2300,6 +2753,11 @@ export default function App() {
                       onContactSeller={handleContactSeller}
                       onDeleteListing={handleDeleteListing}
                       onEditListing={handleEditListing}
+                      onTriggerLightbox={(images, index) => {
+                        setLightboxImages(images);
+                        setLightboxIndex(index);
+                        setLightboxSrc(images[index]);
+                      }}
                     />
                   ) : null;
                 })()}
@@ -2317,7 +2775,9 @@ export default function App() {
                 onSimulateReply={handleSimulateReply}
                 activeChatFriendId={activeChatFriendId}
                 setActiveChatFriendId={setActiveChatFriendId}
-                onDeleteMessages={handleDeleteMessages}
+                 onDeleteMessages={handleDeleteMessages}
+                onDeleteFriend={handleDeleteFriend}
+                onRenameFriend={handleRenameFriend}
                 onViewProfile={(userId) => {
                   setViewingProfileUserId(userId);
                   setActiveTab('profile');
@@ -2543,11 +3003,9 @@ export default function App() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setCustomLogoUrl(reader.result as string);
-                                };
-                                reader.readAsDataURL(file);
+                                compressImage(file)
+                                  .then(setCustomLogoUrl)
+                                  .catch(err => console.error("Admin logo compression failed:", err));
                               }
                             }}
                             className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
@@ -3065,26 +3523,64 @@ export default function App() {
               </button>
             </div>
 
-            {/* Inner Content image */}
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative max-w-full max-h-[85vh] flex items-center justify-center p-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={lightboxSrc}
-                alt="Lightbox View"
-                className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-box contain border border-neutral-800 cursor-zoom-out"
-                onClick={() => setLightboxSrc(null)}
-              />
-            </motion.div>
+            {/* Inner Content image with side controls */}
+            <div className="relative flex items-center justify-center w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Prev Button */}
+              {lightboxImages.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevLightbox();
+                  }}
+                  className="absolute left-2 sm:left-4 z-50 p-3 bg-neutral-900/70 hover:bg-neutral-850 text-white hover:text-emerald-400 rounded-full border border-neutral-800 backdrop-blur-md cursor-pointer transition-all hover:scale-110 active:scale-95 shadow-lg"
+                  title="Foto Sebelumnya (Kiri)"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+              )}
+
+              <motion.div
+                key={lightboxIndex} // Force transition on photo slide
+                initial={{ opacity: 0.7, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0.7, scale: 0.98 }}
+                transition={{ duration: 0.15 }}
+                className="max-w-full max-h-[80vh] flex flex-col items-center justify-center p-2 select-none"
+              >
+                <img
+                  src={lightboxSrc}
+                  alt="Lightbox View"
+                  className="max-w-full max-h-[72vh] rounded-2xl shadow-2xl object-contain border border-neutral-800 cursor-zoom-out"
+                  onClick={() => setLightboxSrc(null)}
+                />
+                
+                {/* Photo index indicators */}
+                {lightboxImages.length > 1 && (
+                  <div className="mt-3 bg-neutral-900/90 border border-neutral-800 px-4 py-1.5 rounded-full text-[10px] font-black text-gray-300 tracking-wider">
+                    Foto {lightboxIndex + 1} dari {lightboxImages.length}
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Next Button */}
+              {lightboxImages.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextLightbox();
+                  }}
+                  className="absolute right-2 sm:right-4 z-50 p-3 bg-neutral-900/70 hover:bg-neutral-850 text-white hover:text-emerald-400 rounded-full border border-neutral-800 backdrop-blur-md cursor-pointer transition-all hover:scale-110 active:scale-95 shadow-lg"
+                  title="Foto Berikutnya (Kanan)"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              )}
+            </div>
 
             {/* Bottom info helper */}
             <div className="absolute bottom-4 bg-neutral-900/80 text-neutral-300 px-4 py-1.5 rounded-full text-[10.5px] border border-neutral-800 backdrop-blur-md pointer-events-none select-none">
-              Klik di luar gambar atau tekan <kbd className="bg-neutral-800 px-1.5 py-0.5 rounded text-xs text-white font-mono">Esc</kbd> untuk menutup
+              Navigasi dengan panah <kbd className="bg-neutral-800 px-1 py-0.5 rounded text-xs text-white font-mono">←</kbd> <kbd className="bg-neutral-800 px-1 py-0.5 rounded text-xs text-white font-mono">→</kbd> atau tekan <kbd className="bg-neutral-800 px-1.5 py-0.5 rounded text-xs text-white font-mono">Esc</kbd> untuk menutup
             </div>
           </motion.div>
         )}
