@@ -1696,12 +1696,12 @@ export default function App() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           
-          {/* Column 1: Universal sidebar (Always visible on large desktops, togglable model drawer for phones) */}
-          <div className="lg:col-span-1">
+          {/* Column 1: Desktop-only sidebar to keep the layout grid perfect without gaps on mobile */}
+          <div className="hidden lg:block lg:col-span-1">
             <Sidebar
               currentUser={currentUser}
-              isOpen={sidebarOpen}
-              onClose={() => setSidebarOpen(false)}
+              isOpen={false}
+              onClose={() => {}}
               activeTab={activeTab}
               setActiveTab={handleTabChange}
               theme={theme}
@@ -2725,6 +2725,19 @@ export default function App() {
         </div>
       </div>
 
+      {/* MOBILE DRAWER SIDE MENU OVERLAY */}
+      <div className="lg:hidden">
+        <Sidebar
+          currentUser={currentUser}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onLogout={handleLogoutFlow}
+        />
+      </div>
 
       {/* COMPACT FLOATING BOTTOM NAV BAR (For mobile responsivity compliance: please all not over the line) */}
       <BottomNavbar

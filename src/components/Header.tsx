@@ -136,20 +136,20 @@ export default function Header({
           </button>
 
           {/* Search bar desktop */}
-          <div className="relative hidden md:block w-72 ml-4">
+          <div className="relative hidden md:block w-40 lg:w-44 xl:w-72 ml-3 lg:ml-4 transition-all duration-300">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-4 w-4 text-slate-400" />
             </div>
             <input
               type="text"
-              placeholder="Cari ide, barang, & teman..."
+              placeholder="Cari..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setShowSuggestionsDropdown(true);
               }}
               onFocus={() => setShowSuggestionsDropdown(true)}
-              className="w-full rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-900 py-1.5 pl-10 pr-4 text-sm text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-950 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all"
+              className="w-full rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-900 py-1.5 pl-9 pr-3 text-xs text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-950 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all"
             />
 
             {/* Suggestions list popup */}
@@ -198,43 +198,43 @@ export default function Header({
         </div>
 
         {/* Tab navigation for Desktop */}
-        <nav className="hidden lg:flex items-center gap-1">
+        <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
           <button
             onClick={() => setActiveTab('feed')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 xl:gap-2 px-2.5 xl:px-4 py-2 rounded-xl text-xs xl:text-sm font-bold transition-colors ${
               activeTab === 'feed'
                 ? 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                 : 'text-gray-650 dark:text-slate-300 hover:bg-gray-150/50 dark:hover:bg-slate-800'
             }`}
           >
-            <Sparkles className="h-4 w-4" />
+            <Sparkles className="h-4 w-4 text-emerald-500" />
             Feed Sosial
           </button>
 
           <button
             onClick={() => setActiveTab('marketplace')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 xl:gap-2 px-2.5 xl:px-4 py-2 rounded-xl text-xs xl:text-sm font-bold transition-colors ${
               activeTab === 'marketplace'
                 ? 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                 : 'text-gray-650 dark:text-slate-300 hover:bg-gray-150/50 dark:hover:bg-slate-800'
             }`}
           >
-            <ShoppingBag className="h-4 w-4" />
+            <ShoppingBag className="h-4 w-4 text-blue-500" />
             Marketplace Lokal
           </button>
 
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 xl:gap-2 px-2.5 xl:px-4 py-2 rounded-xl text-xs xl:text-sm font-bold transition-colors ${
               activeTab === 'chat'
                 ? 'bg-blue-50/80 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                 : 'text-gray-650 dark:text-slate-300 hover:bg-gray-150/50 dark:hover:bg-slate-800'
             }`}
           >
-            <MessageSquare className="h-4 w-4" />
+            <MessageSquare className="h-4 w-4 text-purple-500" />
             Obrolan Chat
             {unreadMessagesCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+              <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                 {unreadMessagesCount}
               </span>
             )}
