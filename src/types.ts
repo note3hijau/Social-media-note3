@@ -21,6 +21,7 @@ export interface Comment {
   content: string;
   image?: string;
   createdAt: string;
+  replies?: Comment[];
 }
 
 export interface Post {

@@ -5,6 +5,7 @@ import { compressImage } from '../utils/imageCompressor';
 
 interface CreatePostModalProps {
   currentUser: User;
+  friends?: any[];
   isOpen: boolean;
   onClose: () => void;
   onSubmitPost: (content: string, images?: string[], location?: string) => void;
@@ -14,6 +15,7 @@ const POST_QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡', '�
 
 export default function CreatePostModal({
   currentUser,
+  friends,
   isOpen,
   onClose,
   onSubmitPost,
@@ -21,6 +23,7 @@ export default function CreatePostModal({
   const [content, setContent] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [showEmojiSelector, setShowEmojiSelector] = useState(false);
+  const [showTagSelector, setShowTagSelector] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,14 +120,55 @@ export default function CreatePostModal({
 
         {/* Text Input area - Taller rows for better readability */}
         <div className="space-y-4">
-          <textarea
-            placeholder="Bagikan ide bagus, berita daerah, atau apa saja yang sedang Anda pikirkan untuk dibaca oleh seluruh UMKM di Indonesia..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={8}
-            maxLength={500}
-            className="w-full border border-gray-200 text-xs sm:text-sm text-gray-900 placeholder-gray-500 bg-white p-4 rounded-2xl focus:outline-hidden leading-relaxed resize-none scrollbar-thin"
-          />
+          <div className="relative">
+            <textarea
+              placeholder="Bagikan ide bagus, berita daerah, atau apa saja yang sedang Anda pikirkan untuk dibaca oleh seluruh UMKM di Indonesia... ketik @ untuk menandai teman"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={8}
+              maxLength={500}
+              className="w-full border border-gray-200 text-xs sm:text-sm text-gray-900 placeholder-gray-500 bg-white p-4 rounded-2xl focus:outline-hidden leading-relaxed resize-none scrollbar-thin"
+            />
+            {/* Real-time Friend Mention suggestions dropdown list */}
+            {(() => {
+              const mentionMatch = content.match(/@([a-zA-Z0-9_]*)$/);
+              if (mentionMatch && friends && friends.length > 0) {
+                const query = mentionMatch[1].toLowerCase();
+                const matchedFriends = friends.filter(friend => 
+                  friend.displayName.toLowerCase().includes(query) ||
+                  (friend.username && friend.username.toLowerCase().includes(query))
+                );
+
+                if (matchedFriends.length > 0) {
+                  return (
+                    <div className="absolute left-3 bottom-3 right-3 bg-white/95 border border-blue-200 shadow-xl rounded-2xl p-1.5 z-10 max-h-36 overflow-y-auto space-y-1 text-left animate-slide-in">
+                      <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest px-2 py-1 bg-blue-50 rounded-lg">💡 PILIH TEMAN UNTUK HIT MENTIONS:</p>
+                      {matchedFriends.map((friend) => {
+                        const tagHandle = '@' + friend.displayName.replace(/[^a-zA-Z0-9]/g, '');
+                        return (
+                          <button
+                            key={friend.id}
+                            type="button"
+                            onClick={() => {
+                              setContent(prev => prev.replace(/@([a-zA-Z0-9_]*)$/, tagHandle + ' '));
+                            }}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-blue-50 text-gray-900 rounded-xl transition-all cursor-pointer text-left"
+                          >
+                            <img src={friend.avatar} className="w-5 h-5 rounded-full object-cover" />
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-950">{friend.displayName}</p>
+                              <p className="text-[7.5px] text-gray-400">@{friend.displayName.toLowerCase().replace(/\s+/g, '_')}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+              }
+              return null;
+            })()}
+          </div>
           <div className="flex justify-between items-center text-[10px] text-gray-400">
             <span>Mendukung upload foto & penyisipan emoji</span>
             <span>{content.length}/500 karakter</span>
@@ -183,9 +227,43 @@ export default function CreatePostModal({
             </div>
           )}
 
+          {/* Tag Selector drawer */}
+          {showTagSelector && friends && friends.length > 0 && (
+            <div className="p-3 bg-blue-50/40 rounded-2xl border border-blue-150 text-left animate-slide-in space-y-2 mt-2">
+              <span className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block">Pilih Rekan UMKM untuk ditandai:</span>
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                {friends.map((friend) => {
+                  const tagHandle = '@' + friend.displayName.replace(/[^a-zA-Z0-9]/g, '');
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => {
+                        setContent(prev => {
+                          const spacing = prev.length > 0 && !prev.endsWith(' ') ? ' ' : '';
+                          return prev + spacing + tagHandle + ' ';
+                        });
+                        setShowTagSelector(false);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-blue-100 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-800 cursor-pointer transition-all"
+                    >
+                      <img src={friend.avatar} className="w-4 h-4 rounded-full object-cover shrink-0" />
+                      <span>{friend.displayName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button 
+                onClick={() => setShowTagSelector(false)}
+                className="text-[9px] font-bold text-blue-500 hover:underline uppercase block ml-auto"
+              >
+                Tutup
+              </button>
+            </div>
+          )}
+
           {/* Social posting upload action tools */}
           <div className="flex gap-2.5 border-t border-gray-100 pt-4 items-center justify-between">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* Custom Image Upload Trigger */}
               <button
                 type="button"
@@ -194,7 +272,7 @@ export default function CreatePostModal({
                 title="Unggah Gambar Kustom"
               >
                 <ImageIcon className="h-4.5 w-4.5 text-emerald-500" />
-                <span className="font-bold text-[10px]">Tambahkan Gambar ({uploadedImages.length}/15)</span>
+                <span className="font-bold text-[10px]">Gambar ({uploadedImages.length}/15)</span>
               </button>
               <input 
                 type="file" 
@@ -214,6 +292,19 @@ export default function CreatePostModal({
                 <Smile className="h-4.5 w-4.5 text-amber-500" />
                 <span className="font-bold text-[10px]">Emoji</span>
               </button>
+
+              {/* Tag Rekan activator */}
+              {friends && friends.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowTagSelector(!showTagSelector)}
+                  className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs cursor-pointer transition-all ${
+                    showTagSelector ? 'border-blue-500 bg-blue-50/50 text-blue-700' : 'border-gray-205 hover:border-blue-500 text-blue-600 bg-white hover:bg-blue-50/25'
+                  }`}
+                >
+                  <span className="font-bold text-[10px]">🏷️ Tag Teman</span>
+                </button>
+              )}
             </div>
 
             <button

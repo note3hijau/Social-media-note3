@@ -1,7 +1,8 @@
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { compressImage } from './utils/imageCompressor';
-import { User, Post, MarketplaceItem, Friend, FriendRequest, AppNotification, Message, EscrowTransaction } from './types';
+import { User, Post, Comment, MarketplaceItem, Friend, FriendRequest, AppNotification, Message, EscrowTransaction } from './types';
 import { motion, AnimatePresence } from 'motion/react';
+import { translate, LANGUAGES } from './utils/translations';
 import {
   INITIAL_CURRENT_USER,
   INITIAL_FRIENDS,
@@ -95,8 +96,14 @@ const INDONESIA_REGIONS = [
     kabupatens: ['Bandung', 'Bekasi', 'Depok', 'Bogor', 'Tasikmalaya', 'Cirebon', 'Cimahi', 'Sukabumi', 'Garut', 'Karawang', 'Subang', 'Sumedang']
   },
   {
-    provinsi: 'Jawa Tengah',
-    kabupatens: ['Semarang', 'Surakarta (Solo)', 'Yogyakarta', 'Sleman', 'Bantul', 'Magelang', 'Pekalongan', 'Salatiga', 'Tegal', 'Cilacap', 'Banyumas', 'Kudus']
+    provinsi: 'Jawa Tengah & DIY',
+    kabupatens: [
+      'Temanggung', 'Semarang', 'Surakarta (Solo)', 'Yogyakarta', 'Sleman', 'Bantul', 'Magelang', 
+      'Pekalongan', 'Salatiga', 'Tegal', 'Cilacap', 'Banyumas', 'Kudus', 'Kendal', 'Demak', 
+      'Grobogan', 'Blora', 'Rembang', 'Pati', 'Jepara', 'Karanganyar', 'Sragen', 'Boyolali', 
+      'Sukoharjo', 'Klaten', 'Wonogiri', 'Wonosobo', 'Purworejo', 'Kebumen', 'Banjarnegara', 
+      'Purbalingga', 'Brebes', 'Pemalang', 'Batang', 'Gunungkidul', 'Kulon Progo'
+    ]
   },
   {
     provinsi: 'Jawa Timur',
@@ -172,7 +179,7 @@ export default function App() {
       if (e.name === 'QuotaExceededError' || e.code === 22 || e.number === 0x8007000E) {
         try {
           // 1. Aggressively strip images on older posts: keep only the 2 latest intact
-          const postsRaw = localStorage.getItem('idebagus_posts');
+          const postsRaw = localStorage.getItem('idkanca_posts');
           if (postsRaw) {
             const parsed = JSON.parse(postsRaw);
             if (Array.isArray(parsed)) {
@@ -182,12 +189,12 @@ export default function App() {
                 }
                 return item;
               });
-              localStorage.setItem('idebagus_posts', JSON.stringify(pruned));
+              localStorage.setItem('idkanca_posts', JSON.stringify(pruned));
             }
           }
 
           // 2. Aggressively strip images on older marketplace items: keep only the 2 latest intact
-          const marketRaw = localStorage.getItem('idebagus_marketplace');
+          const marketRaw = localStorage.getItem('idkanca_marketplace');
           if (marketRaw) {
             const parsed = JSON.parse(marketRaw);
             if (Array.isArray(parsed)) {
@@ -197,13 +204,13 @@ export default function App() {
                 }
                 return item;
               });
-              localStorage.setItem('idebagus_marketplace', JSON.stringify(pruned));
+              localStorage.setItem('idkanca_marketplace', JSON.stringify(pruned));
             }
           }
 
           // 3. Clear non-essential large items
-          localStorage.removeItem('idebagus_notifications');
-          localStorage.removeItem('idebagus_transactions');
+          localStorage.removeItem('idkanca_notifications');
+          localStorage.removeItem('idkanca_transactions');
 
           // Retry the original safe writing task
           localStorage.setItem(key, value);
@@ -211,11 +218,11 @@ export default function App() {
           console.error("Deep cache cleanup retry failed:", innerError);
           // Drop non-essential long chat histories except the 15 latest entries
           try {
-            const msgRaw = localStorage.getItem('idebagus_messages');
+            const msgRaw = localStorage.getItem('idkanca_messages');
             if (msgRaw) {
               const parsed = JSON.parse(msgRaw);
               if (Array.isArray(parsed) && parsed.length > 15) {
-                localStorage.setItem('idebagus_messages', JSON.stringify(parsed.slice(-15)));
+                localStorage.setItem('idkanca_messages', JSON.stringify(parsed.slice(-15)));
               }
             }
             localStorage.setItem(key, value);
@@ -238,21 +245,22 @@ export default function App() {
   };
 
   // --- Persistent Local States ---
-  const [currentUser, setCurrentUser] = useState<User>(() => safeJsonParse('idebagus_user', INITIAL_CURRENT_USER));
-  const [posts, setPosts] = useState<Post[]>(() => safeJsonParse('idebagus_posts', INITIAL_POSTS));
-  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>(() => safeJsonParse('idebagus_marketplace', INITIAL_MARKETPLACE));
-  const [friends, setFriends] = useState<Friend[]>(() => safeJsonParse('idebagus_friends', INITIAL_FRIENDS));
-  const [messages, setMessages] = useState<Message[]>(() => safeJsonParse('idebagus_messages', INITIAL_MESSAGES));
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => safeJsonParse('idebagus_requests', INITIAL_FRIEND_REQUESTS));
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => safeJsonParse('idebagus_notifications', INITIAL_NOTIFICATIONS));
+  const [currentUser, setCurrentUser] = useState<User>(() => safeJsonParse('idkanca_user', INITIAL_CURRENT_USER));
+  const [posts, setPosts] = useState<Post[]>(() => safeJsonParse('idkanca_posts', INITIAL_POSTS));
+  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>(() => safeJsonParse('idkanca_marketplace', INITIAL_MARKETPLACE));
+  const [friends, setFriends] = useState<Friend[]>(() => safeJsonParse('idkanca_friends', INITIAL_FRIENDS));
+  const [messages, setMessages] = useState<Message[]>(() => safeJsonParse('idkanca_messages', INITIAL_MESSAGES));
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => safeJsonParse('idkanca_requests', INITIAL_FRIEND_REQUESTS));
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => safeJsonParse('idkanca_notifications', INITIAL_NOTIFICATIONS));
 
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [language, setLanguage] = useState<string>(() => localStorage.getItem('idkanca_language') || 'id');
 
   // --- Layout States ---
   const [activeTab, setActiveTab] = useState<string>('feed');
   const [marketSubTab, setMarketSubTab] = useState<'browse' | 'orders' | 'admin'>('browse');
   const [transactions, setTransactions] = useState<EscrowTransaction[]>(() => {
-    const cached = localStorage.getItem('idebagus_transactions');
+    const cached = localStorage.getItem('idkanca_transactions');
     try {
       return cached ? JSON.parse(cached) : [];
     } catch (e) {
@@ -265,6 +273,30 @@ export default function App() {
   const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
   const [postCommentsLimit, setPostCommentsLimit] = useState<Record<string, number>>({});
   
+  // Nested comments replies & tagging states
+  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [replyImage, setReplyImage] = useState<Record<string, string>>({});
+  const [showCommentTagBoxForPost, setShowCommentTagBoxForPost] = useState<string | null>(null);
+
+  // Ref container for device push notifications de-duplication
+  const lastProcessedNotificationIdRef = useRef<string | null>(null);
+
+  const renderFormattedContent = (text: string) => {
+    if (!text) return '';
+    const parts = text.split(/(@[a-zA-Z0-9_.-]+)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        return (
+          <span key={index} className="inline-block bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-extrabold px-1.5 py-0.5 rounded-md text-[10px] border border-emerald-500/20 shadow-xs mx-0.5 select-all">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+  
   // Custom states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMarketCategory, setActiveMarketCategory] = useState<string>('Semua');
@@ -275,22 +307,22 @@ export default function App() {
   const [marketFilterMaxPrice, setMarketFilterMaxPrice] = useState('');
 
   // Customizable Home Banner, Maintenance toggle, Total users tracker, and marquee text states
-  const [homepageBannerUrl, setHomepageBannerUrl] = useState(() => localStorage.getItem('idebagus_home_banner') || 'https://images.unsplash.com/photo-1542744094-2ab25be78b90?w=1000&auto=format&fit=crop&q=80');
-  const [adminTotalUsers, setAdminTotalUsers] = useState(() => parseInt(localStorage.getItem('idebagus_total_users') || '1482'));
-  const [isUnderMaintenance, setIsUnderMaintenance] = useState(() => localStorage.getItem('idebagus_under_maintenance') === 'true');
-  const [adminMarqueeText, setAdminMarqueeText] = useState(() => localStorage.getItem('idebagus_marquee_text') || '📢 Selamat datang di Idebagus: idenagus.com sosial media & Pasar Niaga UMKM Lokal Indonesia. Belanja aman dengan sistem Rekber Terpercaya kami.');
+  const [homepageBannerUrl, setHomepageBannerUrl] = useState(() => localStorage.getItem('idkanca_home_banner') || 'https://images.unsplash.com/photo-1542744094-2ab25be78b90?w=1000&auto=format&fit=crop&q=80');
+  const [adminTotalUsers, setAdminTotalUsers] = useState(() => parseInt(localStorage.getItem('idkanca_total_users') || '1482'));
+  const [isUnderMaintenance, setIsUnderMaintenance] = useState(() => localStorage.getItem('idkanca_under_maintenance') === 'true');
+  const [adminMarqueeText, setAdminMarqueeText] = useState(() => localStorage.getItem('idkanca_marquee_text') || '📢 Selamat datang di idkanca: idkanca.com sosial media & Pasar Niaga UMKM Lokal Indonesia. Belanja aman dengan sistem Rekber Terpercaya kami.');
 
   // Custom visual branding and splash customization states
-  const [customLogoUrl, setCustomLogoUrl] = useState(() => localStorage.getItem('idebagus_custom_logo') || '');
-  const [loginTitle, setLoginTitle] = useState(() => localStorage.getItem('idebagus_login_title') || 'IdeBagus Digital');
-  const [loginSubtitle, setLoginSubtitle] = useState(() => localStorage.getItem('idebagus_login_subtitle') || 'idenagus.com sosial media & Pasar Niaga UMKM Lokal Indonesia');
-  const [loginOneTapTitle, setLoginOneTapTitle] = useState(() => localStorage.getItem('idebagus_login_onetap_title') || 'SINKRONISASI KEAMANAN');
-  const [loginOneTapDesc, setLoginOneTapDesc] = useState(() => localStorage.getItem('idebagus_login_onetap_desc') || 'Untuk mendaftar & beriklan di Idebagus, silakan hubungkan akun Gmail Anda dengan 1-klik aman.');
-  const [loginPageBg, setLoginPageBg] = useState(() => localStorage.getItem('idebagus_login_bg') || '#0b0f19');
+  const [customLogoUrl, setCustomLogoUrl] = useState(() => localStorage.getItem('idkanca_custom_logo') || '');
+  const [loginTitle, setLoginTitle] = useState(() => localStorage.getItem('idkanca_login_title') || 'IdKanca Digital');
+  const [loginSubtitle, setLoginSubtitle] = useState(() => localStorage.getItem('idkanca_login_subtitle') || 'idkanca.com sosial media & Pasar Niaga UMKM Lokal Indonesia');
+  const [loginOneTapTitle, setLoginOneTapTitle] = useState(() => localStorage.getItem('idkanca_login_onetap_title') || 'SINKRONISASI KEAMANAN');
+  const [loginOneTapDesc, setLoginOneTapDesc] = useState(() => localStorage.getItem('idkanca_login_onetap_desc') || 'Untuk mendaftar & beriklan di IdKanca, silakan hubungkan akun Gmail Anda dengan 1-klik aman.');
+  const [loginPageBg, setLoginPageBg] = useState(() => localStorage.getItem('idkanca_login_bg') || '#0b0f19');
 
   // One-click authentication with Google & mandatory email verification states
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('idebagus_logged_in') !== 'false');
-  const [isEmailVerified, setIsEmailVerified] = useState(() => localStorage.getItem('idebagus_email_verified') !== 'false');
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('idkanca_logged_in') !== 'false');
+  const [isEmailVerified, setIsEmailVerified] = useState(() => localStorage.getItem('idkanca_email_verified') !== 'false');
   const [tempGmailEmail, setTempGmailEmail] = useState('');
   const [setupDisplayName, setSetupDisplayName] = useState('');
   const [setupAvatar, setSetupAvatar] = useState('');
@@ -394,90 +426,120 @@ export default function App() {
 
   // Sync to localStorage
   useEffect(() => {
-    safeSetItem('idebagus_user', JSON.stringify(currentUser));
+    safeSetItem('idkanca_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
   useEffect(() => {
-    safeSetItem('idebagus_posts', JSON.stringify(posts));
+    safeSetItem('idkanca_posts', JSON.stringify(posts));
   }, [posts]);
 
   useEffect(() => {
-    safeSetItem('idebagus_marketplace', JSON.stringify(marketplaceItems));
+    safeSetItem('idkanca_marketplace', JSON.stringify(marketplaceItems));
   }, [marketplaceItems]);
 
   useEffect(() => {
-    safeSetItem('idebagus_friends', JSON.stringify(friends));
+    safeSetItem('idkanca_friends', JSON.stringify(friends));
   }, [friends]);
 
   useEffect(() => {
-    safeSetItem('idebagus_messages', JSON.stringify(messages));
+    safeSetItem('idkanca_messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    safeSetItem('idebagus_requests', JSON.stringify(friendRequests));
+    safeSetItem('idkanca_requests', JSON.stringify(friendRequests));
   }, [friendRequests]);
 
   useEffect(() => {
-    safeSetItem('idebagus_notifications', JSON.stringify(notifications));
+    safeSetItem('idkanca_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
   useEffect(() => {
-    safeSetItem('idebagus_transactions', JSON.stringify(transactions));
+    safeSetItem('idkanca_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
   useEffect(() => {
-    safeSetItem('idebagus_theme', 'dark');
+    safeSetItem('idkanca_theme', 'dark');
     const root = window.document.documentElement;
     root.classList.add('dark');
   }, [theme]);
 
   useEffect(() => {
-    safeSetItem('idebagus_home_banner', homepageBannerUrl);
+    safeSetItem('idkanca_language', language);
+  }, [language]);
+
+  useEffect(() => {
+    safeSetItem('idkanca_home_banner', homepageBannerUrl);
   }, [homepageBannerUrl]);
 
   useEffect(() => {
-    safeSetItem('idebagus_total_users', adminTotalUsers.toString());
+    safeSetItem('idkanca_total_users', adminTotalUsers.toString());
   }, [adminTotalUsers]);
 
   useEffect(() => {
-    safeSetItem('idebagus_under_maintenance', isUnderMaintenance ? 'true' : 'false');
+    safeSetItem('idkanca_under_maintenance', isUnderMaintenance ? 'true' : 'false');
   }, [isUnderMaintenance]);
 
   useEffect(() => {
-    safeSetItem('idebagus_marquee_text', adminMarqueeText);
+    safeSetItem('idkanca_marquee_text', adminMarqueeText);
   }, [adminMarqueeText]);
 
   useEffect(() => {
-    safeSetItem('idebagus_custom_logo', customLogoUrl);
+    safeSetItem('idkanca_custom_logo', customLogoUrl);
   }, [customLogoUrl]);
 
   useEffect(() => {
-    safeSetItem('idebagus_login_title', loginTitle);
+    safeSetItem('idkanca_login_title', loginTitle);
   }, [loginTitle]);
 
   useEffect(() => {
-    safeSetItem('idebagus_login_subtitle', loginSubtitle);
+    safeSetItem('idkanca_login_subtitle', loginSubtitle);
   }, [loginSubtitle]);
 
   useEffect(() => {
-    safeSetItem('idebagus_login_onetap_title', loginOneTapTitle);
+    safeSetItem('idkanca_login_onetap_title', loginOneTapTitle);
   }, [loginOneTapTitle]);
 
   useEffect(() => {
-    safeSetItem('idebagus_login_onetap_desc', loginOneTapDesc);
+    safeSetItem('idkanca_login_onetap_desc', loginOneTapDesc);
   }, [loginOneTapDesc]);
 
   useEffect(() => {
-    safeSetItem('idebagus_login_bg', loginPageBg);
+    safeSetItem('idkanca_login_bg', loginPageBg);
   }, [loginPageBg]);
 
   useEffect(() => {
-    safeSetItem('idebagus_logged_in', isLoggedIn ? 'true' : 'false');
+    safeSetItem('idkanca_logged_in', isLoggedIn ? 'true' : 'false');
   }, [isLoggedIn]);
 
   useEffect(() => {
-    safeSetItem('idebagus_email_verified', isEmailVerified ? 'true' : 'false');
+    safeSetItem('idkanca_email_verified', isEmailVerified ? 'true' : 'false');
   }, [isEmailVerified]);
+
+  // Real-time device/browser push notifications trigger & haptic vibration
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const latestNotif = notifications[0];
+      if (!latestNotif.isRead && latestNotif.id !== lastProcessedNotificationIdRef.current) {
+        lastProcessedNotificationIdRef.current = latestNotif.id;
+        
+        // Trigger standard browser Notification if permission is granted
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            const systemNotif = new Notification(latestNotif.title, {
+              body: latestNotif.content,
+              icon: latestNotif.senderAvatar || 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=80&auto=format&fit=crop&q=60'
+            });
+            // Try to vibrate if on mobile device
+            if ('vibrate' in navigator) {
+              navigator.vibrate([250, 100, 250]);
+            }
+          } catch (e) {
+            console.warn('Silent device notification dispatch fallback:', e);
+          }
+        }
+      }
+    }
+  }, [notifications]);
 
   // Automatically mark messages as read when active chat thread is opened or on the chat tab
   useEffect(() => {
@@ -498,8 +560,8 @@ export default function App() {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setViewListingId(null);
-    if (tab === 'chat' && !activeChatFriendId && friends.length > 0) {
-      setActiveChatFriendId(friends[0].id);
+    if (tab === 'chat') {
+      setActiveChatFriendId(null); // Reset active chat friend so it shows all obrolan threads by default
     }
   };
 
@@ -528,7 +590,7 @@ export default function App() {
         id: 'n_req_' + Date.now(),
         type: 'friend_request',
         title: 'Permintaan Pertemanan Baru',
-        content: `Lina Rosalina mengajak Anda berteman di idebagus.com!`,
+        content: `Lina Rosalina mengajak Anda berteman di idkanca.com!`,
         senderId: newRequest.senderId,
         senderAvatar: newRequest.senderAvatar,
         isRead: false,
@@ -628,7 +690,9 @@ export default function App() {
   };
 
   const handleDeletePost = (postId: string) => {
-    setPosts(prev => prev.filter(p => p.id !== postId));
+    if (window.confirm(translate('deletePostConfirm', language))) {
+      setPosts(prev => prev.filter(p => p.id !== postId));
+    }
   };
 
   const handleCommentPost = (postId: string) => {
@@ -659,6 +723,47 @@ export default function App() {
     setNewCommentImage(prev => ({ ...prev, [postId]: '' }));
   };
 
+  const handleCommentReply = (postId: string, commentId: string) => {
+    const text = replyText[commentId]?.trim();
+    const image = replyImage[commentId];
+    if (!text && !image) return;
+
+    const newReply: Comment = {
+      id: 'comm_reply_' + Date.now(),
+      userId: currentUser.id,
+      userName: currentUser.displayName,
+      userAvatar: currentUser.avatar,
+      content: text || 'Mengirim foto 📸',
+      image: image || undefined,
+      createdAt: 'Baru saja',
+      replies: []
+    };
+
+    setPosts(prev =>
+      prev.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            comments: p.comments.map(c => {
+              if (c.id === commentId) {
+                return {
+                  ...c,
+                  replies: [...(c.replies || []), newReply]
+                };
+              }
+              return c;
+            })
+          };
+        }
+        return p;
+      })
+    );
+
+    setReplyText(prev => ({ ...prev, [commentId]: '' }));
+    setReplyImage(prev => ({ ...prev, [commentId]: '' }));
+    setReplyingToCommentId(null);
+  };
+
   // --- Business logic: Friend Request responses ---
   const handleAcceptFriendRequest = (requestId: string, senderName: string) => {
     setFriendRequests(prev =>
@@ -682,7 +787,7 @@ export default function App() {
       id: 'notif_acc_' + Date.now(),
       type: 'friend_request',
       title: 'Pertemanan Diterima',
-      content: `Anda sekarang berteman dengan ${senderName} di idebagus.com. Klik untuk lihat profilnya!`,
+      content: `Anda sekarang berteman dengan ${senderName} di idkanca.com. Klik untuk lihat profilnya!`,
       senderId: requestItem?.senderId,
       targetId: requestItem?.senderId,
       isRead: false,
@@ -859,16 +964,11 @@ export default function App() {
     // 1. Remove contact/friend
     setFriends(prev => prev.filter(f => f.id !== friendId));
     
-    // 2. Clear all messages with this contact
-    setMessages(prev => prev.filter(m => 
-      !(m.senderId === currentUser.id && m.receiverId === friendId) &&
-      !(m.senderId === friendId && m.receiverId === currentUser.id)
-    ));
+    // 2. Clear all messages with this contact completely (sender or receiver is friendId)
+    setMessages(prev => prev.filter(m => m.senderId !== friendId && m.receiverId !== friendId));
     
-    // 3. Reset active chat if active
-    if (activeChatFriendId === friendId) {
-      setActiveChatFriendId(null);
-    }
+    // 3. Reset active chat if active (using functional state to prevent React stale closures)
+    setActiveChatFriendId(prev => prev === friendId ? null : prev);
 
     // Toast feedback
     setShowNotificationBadgeSplash(true);
@@ -1022,7 +1122,7 @@ export default function App() {
       {
         time: 'Baru saja',
         statusText: 'Pembayaran Diverifikasi (Escrow Secured)',
-        note: `Pembayaran via ${method.toUpperCase()} aman dikunci di Escrow Rekening Bersama idebagus.com.`
+        note: `Pembayaran via ${method.toUpperCase()} aman dikunci di Escrow Rekening Bersama idkanca.com.`
       },
       {
         time: 'Menunggu',
@@ -1318,7 +1418,7 @@ export default function App() {
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Dalam Maintenance</h1>
             <p className="text-xs text-neutral-400 leading-relaxed">
-              Halo pembaca IdeBagus, situs kami sedang ditingkatkan untuk dukungan performa query database sharding regional Indonesia yang lebih andal.
+              Halo pembaca IdKanca, situs kami sedang ditingkatkan untuk dukungan performa query database sharding regional Indonesia yang lebih andal.
             </p>
           </div>
 
@@ -1370,12 +1470,12 @@ export default function App() {
             {customLogoUrl ? (
               <img 
                 src={customLogoUrl} 
-                alt="IdeBagus Logo" 
+                alt="IdKanca Logo" 
                 className="h-16 w-16 rounded-2xl object-cover mx-auto shadow-lg border border-white/10" 
               />
             ) : (
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center text-white text-2xl font-black mx-auto shadow-lg shadow-emerald-500/10">
-                iB
+                iK
               </div>
             )}
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">{loginTitle}</h1>
@@ -1480,10 +1580,10 @@ export default function App() {
                               "Accept": "application/json"
                             },
                             body: JSON.stringify({
-                              "_subject": `🔑 KODE OTP: ${dynamicCode} - Verifikasi Portal IdeBagus`,
-                              "name": "Portal Sinergi Bisnis IdeBagus",
+                              "_subject": `🔑 KODE OTP: ${dynamicCode} - Aktifkan Akun IdKanca`,
+                              "name": "Portal IdKanca",
                               "email": tempGmailEmail.trim(),
-                              "message": `Halo!\n\nBerikut kode OTP Verifikasi pendaftaran Anda untuk masuk di Portal Sinergi Bisnis Lokal IdeBagus:\n\n👉  ${dynamicCode}  👈\n\nMasukkan 6-digit angka di atas pada halaman pendaftaran untuk menyelesaikan pendaftaran profil.\n\nCatatan: Jika ini pertama kalinya Anda menggunakan email ini di FormSubmit, harap periksa kotak masuk dan klik tombol "Activate Form" terlebih dahulu agar kode OTP berikutnya bisa terkirim langsung tanpa aktivasi tambahan.\n\nTerima kasih,\nTim Kerja Portal IdeBagus Indonesia`
+                              "message": `Aktifkan akun Anda secara instan.\n\nMasukkan kode verifikasi 6 digit berikut:\n\n🔑 Kode OTP: ${dynamicCode}`
                             })
                           }).catch(err => {
                             console.warn("FormSubmit send notice err:", err);
@@ -1579,7 +1679,7 @@ export default function App() {
                         
                         // Enforce friends are completely 0 upon registration
                         setFriends([]);
-                        safeSetItem('idebagus_friends', JSON.stringify([]));
+                        safeSetItem('idkanca_friends', JSON.stringify([]));
 
                         setIsLoggedIn(true);
                         setIsEmailVerified(true);
@@ -1627,7 +1727,7 @@ export default function App() {
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Satu Langkah Lagi!</h1>
             <p className="text-xs text-neutral-400 leading-relaxed max-w-sm mx-auto">
-              Demi keamanan, integritas, dan orisinalitas komunitas bisnis lokal IdeBagus, Anda diwajibkan untuk mengisi nama lengkap dan mengunggah foto profil asli.
+              Demi keamanan, integritas, dan orisinalitas komunitas bisnis lokal IdKanca, Anda diwajibkan untuk mengisi nama lengkap dan mengunggah foto profil asli.
             </p>
           </div>
 
@@ -1746,7 +1846,7 @@ export default function App() {
               onClick={() => {
                 setIsLoggedIn(false);
                 setIsEmailVerified(false);
-                localStorage.removeItem('idebagus_logged_in');
+                localStorage.removeItem('idkanca_logged_in');
               }}
               className="flex-1 py-3 border border-neutral-800 text-gray-400 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer text-center animate-fade-in"
             >
@@ -1833,6 +1933,7 @@ export default function App() {
               theme={theme}
               toggleTheme={toggleTheme}
               onLogout={handleLogoutFlow}
+              language={language}
             />
           </div>
 
@@ -1849,7 +1950,7 @@ export default function App() {
                   Simulasikan Panggilan Sinyal Realtime?
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  Simulasikan pesan instan, kemajuan kurir, dan sinkronkan dengan database Idebagus di Indonesia secara instan.
+                  Simulasikan pesan instan, kemajuan kurir, dan sinkronkan dengan database IdKanca di Indonesia secara instan.
                 </p>
               </div>
 
@@ -1926,7 +2027,7 @@ export default function App() {
                               if (isFriend) {
                                 setFriends(prev => {
                                   const updated = prev.filter(f => f.id !== pep.id);
-                                  safeSetItem('idebagus_friends', JSON.stringify(updated));
+                                  safeSetItem('idkanca_friends', JSON.stringify(updated));
                                   return updated;
                                 });
                               } else {
@@ -1941,7 +2042,7 @@ export default function App() {
                                       lastActive: pep.isOnline ? 'Aktif Sekarang' : (pep.id === 'user_3' ? '2 jam lalu' : 'Kemarin')
                                     }
                                   ];
-                                  safeSetItem('idebagus_friends', JSON.stringify(updated));
+                                  safeSetItem('idkanca_friends', JSON.stringify(updated));
                                   return updated;
                                 });
                               }
@@ -2021,7 +2122,7 @@ export default function App() {
                           {/* Content text */}
                           <div className="bg-slate-800 dark:bg-slate-950 text-white p-4 rounded-2xl shadow-xs border border-slate-700/50 dark:border-neutral-800 text-left">
                             <p className="text-xs sm:text-sm text-white leading-relaxed font-sans font-medium">
-                              {post.content}
+                              {renderFormattedContent(post.content)}
                             </p>
                           </div>
 
@@ -2175,7 +2276,7 @@ export default function App() {
                           })()}
 
                           {/* Action Toolbar buttons */}
-                          <div className="flex gap-6 pt-3 border-t border-gray-100 dark:border-neutral-850/70 text-gray-500 dark:text-neutral-450">
+                          <div className="flex flex-wrap gap-x-6 gap-y-2.5 pt-3 border-t border-gray-100 dark:border-neutral-850/70 text-gray-500 dark:text-neutral-450">
                             <button
                               onClick={() => handleLikePost(post.id)}
                               className={`flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
@@ -2192,7 +2293,7 @@ export default function App() {
                             </span>
                             <button
                               onClick={() => {
-                                const shareText = `Halo rekan UMKM, baca status dari ${post.userName} di IdeBagus: "${post.content.slice(0, 100)}${post.content.length > 100 ? '...' : ''}"\nKunjungi: ${window.location.href}`;
+                                const shareText = `Halo rekan UMKM, baca status dari ${post.userName} di IdKanca: "${post.content.slice(0, 100)}${post.content.length > 100 ? '...' : ''}"\nKunjungi: ${window.location.href}`;
                                 const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
                                 window.open(waUrl, '_blank', 'noopener,noreferrer');
                               }}
@@ -2226,42 +2327,196 @@ export default function App() {
                                     <div 
                                       key={comment.id} 
                                       id={`comment-${comment.id}`}
-                                      className={`flex gap-2.5 items-start text-xs text-left p-1.5 rounded-xl transition-all ${
+                                      className="space-y-2 border-b border-gray-150/10 dark:border-neutral-800 pb-2.5 last:border-0"
+                                    >
+                                      <div className={`flex gap-2.5 items-start text-xs text-left p-1.5 rounded-xl transition-all ${
                                         isCommentHighlighted 
                                           ? 'animate-blink-custom border-l-4 border-emerald-500 shadow-lg scale-[1.02] ring-1 ring-emerald-400/30' 
                                           : ''
-                                      }`}
-                                    >
-                                      <img src={comment.userAvatar} alt={comment.userName} className="h-7 w-7 rounded-full object-cover shrink-0 mt-0.5" />
-                                      <div className={`flex-1 min-w-0 p-2 text-[11px] rounded-xl border ${
-                                        isCommentHighlighted
-                                          ? 'bg-white/80 dark:bg-neutral-900/95 border-emerald-500 text-gray-900 dark:text-white shadow-md'
-                                          : 'bg-slate-700 text-white dark:bg-neutral-950 border-slate-600 dark:border-neutral-800'
                                       }`}>
-                                        <div className="flex justify-between items-baseline mb-0.5">
-                                          <span className={`font-bold flex items-center gap-1.5 ${
-                                            isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-100 dark:text-slate-200'
-                                          }`}>
-                                            {comment.userName}
-                                            {isCommentHighlighted && (
-                                              <span className="text-[8px] bg-gradient-to-r from-emerald-500 to-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded-full select-none animate-bounce shadow-xs">
-                                                Sumber Notif ✨
-                                              </span>
-                                            )}
-                                          </span>
-                                          <span className={`text-[8px] ${isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{comment.createdAt}</span>
-                                        </div>
-                                        <p className={`text-xs leading-relaxed font-semibold block break-words ${
-                                          isCommentHighlighted ? 'text-gray-950 dark:text-neutral-100' : 'text-white'
-                                        }`}>{comment.content}</p>
-
-                                        {/* Render comment image if attached */}
-                                        {comment.image && (
-                                          <div className="mt-2 rounded-xl overflow-hidden max-h-36 border border-white/10 dark:border-neutral-800 bg-neutral-950/40">
-                                            <img src={comment.image} alt="Komentar Foto" className="w-[85%] object-cover cursor-pointer hover:opacity-95" />
+                                        <img src={comment.userAvatar} alt={comment.userName} className="h-7 w-7 rounded-full object-cover shrink-0 mt-0.5" />
+                                        <div className={`flex-1 min-w-0 p-2 text-[11px] rounded-xl border ${
+                                          isCommentHighlighted
+                                            ? 'bg-white/80 dark:bg-neutral-900/95 border-emerald-500 text-gray-900 dark:text-white shadow-md'
+                                            : 'bg-slate-700 text-white dark:bg-neutral-950 border-slate-600 dark:border-neutral-800'
+                                        }`}>
+                                          <div className="flex justify-between items-baseline mb-0.5 border-b border-white/5 pb-1">
+                                            <span className={`font-bold flex items-center gap-1.5 ${
+                                              isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-100 dark:text-slate-200'
+                                            }`}>
+                                              {comment.userName}
+                                              {isCommentHighlighted && (
+                                                <span className="text-[8px] bg-gradient-to-r from-emerald-500 to-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded-full select-none animate-bounce shadow-xs">
+                                                  Sumber Notif ✨
+                                                </span>
+                                              )}
+                                            </span>
+                                            <span className={`text-[8px] ${isCommentHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>{comment.createdAt}</span>
                                           </div>
-                                        )}
+                                          <p className={`text-xs leading-relaxed font-semibold block break-words ${
+                                            isCommentHighlighted ? 'text-gray-950 dark:text-neutral-100' : 'text-white'
+                                          }`}>{renderFormattedContent(comment.content)}</p>
+
+                                          {/* Render comment image if attached with custom lightbox integration */}
+                                          {comment.image && (
+                                            <div className="mt-2 rounded-xl overflow-hidden max-h-36 border border-white/10 dark:border-neutral-800 bg-neutral-950/40">
+                                              <img 
+                                                src={comment.image} 
+                                                alt="Komentar Foto" 
+                                                className="w-[85%] object-cover cursor-pointer hover:opacity-95" 
+                                                onClick={() => {
+                                                  setLightboxImages([comment.image!]);
+                                                  setLightboxIndex(0);
+                                                  setLightboxSrc(comment.image!);
+                                                }}
+                                              />
+                                            </div>
+                                          )}
+
+                                          {/* Mini action triggers */}
+                                          <div className={`flex gap-3 mt-2 pt-1 border-t border-dashed ${isCommentHighlighted ? 'border-gray-200 text-gray-600' : 'border-white/10 text-slate-300'} select-none`}>
+                                            <button 
+                                              onClick={() => setReplyingToCommentId(replyingToCommentId === comment.id ? null : comment.id)}
+                                              className="hover:text-amber-400 font-bold text-[9px] transition-colors cursor-pointer flex items-center gap-1"
+                                            >
+                                              💬 Balas Komentar
+                                            </button>
+                                          </div>
+                                        </div>
                                       </div>
+
+                                      {/* Active Reply box */}
+                                      {replyingToCommentId === comment.id && (
+                                        <div className="ml-9 p-3 bg-neutral-900/90 dark:bg-black/95 rounded-xl border border-emerald-500/30 animate-slide-in space-y-2 text-left">
+                                          <p className="text-[9px] font-extrabold text-amber-400">Balas komentar dari {comment.userName}:</p>
+                                          
+                                          {/* Selected reply image preview */}
+                                          {replyImage[comment.id] && (
+                                            <div className="relative inline-block mt-1 bg-black/40 rounded-lg p-1 border border-neutral-700">
+                                              <img src={replyImage[comment.id]} className="max-h-20 max-w-xs object-contain rounded-md" />
+                                              <button 
+                                                onClick={() => setReplyImage(prev => ({ ...prev, [comment.id]: '' }))}
+                                                className="absolute -top-1.5 -right-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full h-4 w-4 flex items-center justify-center text-[8px] cursor-pointer"
+                                                type="button"
+                                              >
+                                                ✕
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          <div className="flex gap-2 items-center relative">
+                                            {/* File selector icon trigger */}
+                                            <label className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 rounded-lg cursor-pointer transition-all shrink-0">
+                                              <ImageIcon className="h-4 w-4" />
+                                              <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={(e) => {
+                                                  const file = e.target.files?.[0];
+                                                  if (file) {
+                                                    const url = URL.createObjectURL(file);
+                                                    setReplyImage(prev => ({ ...prev, [comment.id]: url }));
+                                                  }
+                                                }}
+                                              />
+                                            </label>
+
+                                            <div className="relative flex-1">
+                                              <input 
+                                                type="text"
+                                                placeholder="Tulis balasan... ketik @ untuk tag"
+                                                value={replyText[comment.id] || ''}
+                                                onChange={(e) => setReplyText(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                                className="w-full rounded-lg border border-neutral-700 dark:border-neutral-800 bg-neutral-950/90 text-[11px] text-white px-3 py-1.5 focus:outline-hidden focus:border-emerald-500 font-medium"
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') handleCommentReply(post.id, comment.id);
+                                                }}
+                                              />
+                                              {/* Auto-mention suggestions dropdown list for deep nested comments */}
+                                              {(() => {
+                                                const currentText = replyText[comment.id] || '';
+                                                const match = currentText.match(/@([a-zA-Z0-9_]*)$/);
+                                                if (match && friends && friends.length > 0) {
+                                                  const query = match[1].toLowerCase();
+                                                  const matchedFriends = friends.filter(friend => 
+                                                    friend.displayName.toLowerCase().includes(query) ||
+                                                    (friend.username && friend.username.toLowerCase().includes(query))
+                                                  );
+                                                  if (matchedFriends.length > 0) {
+                                                    return (
+                                                      <div className="absolute left-0 bottom-full mb-1 w-48 bg-neutral-950 border border-emerald-500/30 shadow-xl rounded-xl p-1.5 z-30 max-h-24 overflow-y-auto space-y-0.5 text-left text-white">
+                                                        {matchedFriends.map((friend) => {
+                                                          const tagHandle = '@' + friend.displayName.replace(/[^a-zA-Z0-9]/g, '');
+                                                          return (
+                                                            <button
+                                                              key={friend.id}
+                                                              type="button"
+                                                              onClick={() => {
+                                                                setReplyText(prev => {
+                                                                  const text = prev[comment.id] || '';
+                                                                  return { ...prev, [comment.id]: text.replace(/@([a-zA-Z0-9_]*)$/, tagHandle + ' ') };
+                                                                });
+                                                              }}
+                                                              className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-neutral-800 rounded-lg text-left text-white"
+                                                            >
+                                                              <img src={friend.avatar} className="w-3.5 h-3.5 rounded-full object-cover shrink-0" />
+                                                              <span className="text-[9px] font-bold truncate text-white">{friend.displayName}</span>
+                                                            </button>
+                                                          );
+                                                        })}
+                                                      </div>
+                                                    );
+                                                  }
+                                                }
+                                                return null;
+                                              })()}
+                                            </div>
+
+                                            <button 
+                                              onClick={() => handleCommentReply(post.id, comment.id)}
+                                              className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black rounded-lg transition-all cursor-pointer"
+                                            >
+                                              Balas
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Threaded nested replies mapping */}
+                                      {comment.replies && comment.replies.length > 0 && (
+                                        <div className="ml-9 pl-3.5 border-l-2 border-slate-500/25 space-y-2">
+                                          {comment.replies.map((reply) => (
+                                            <div key={reply.id} className="flex gap-2 items-start text-[10px] bg-slate-50 dark:bg-neutral-950/60 p-2 rounded-xl border border-neutral-100 dark:border-neutral-900 text-left">
+                                              <img src={reply.userAvatar} alt={reply.userName} className="h-5 w-5 rounded-full object-cover shrink-0 mt-0.5" />
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-baseline mb-0.5">
+                                                  <span className="font-extrabold text-blue-600 dark:text-blue-400">{reply.userName}</span>
+                                                  <span className="text-[7.5px] text-slate-400">{reply.createdAt}</span>
+                                                </div>
+                                                <p className="text-[10px] leading-relaxed text-gray-900 dark:text-neutral-100 font-medium break-words">
+                                                  {renderFormattedContent(reply.content)}
+                                                </p>
+                                                {/* Display reply image with custom lightbox integration */}
+                                                {reply.image && (
+                                                  <div className="mt-2 rounded-lg overflow-hidden max-h-28 border border-neutral-200 dark:border-neutral-800 bg-neutral-950/40">
+                                                    <img 
+                                                      src={reply.image} 
+                                                      alt="Komentar Foto" 
+                                                      className="max-w-[70%] object-cover cursor-pointer hover:opacity-95" 
+                                                      onClick={() => {
+                                                        setLightboxImages([reply.image!]);
+                                                        setLightboxIndex(0);
+                                                        setLightboxSrc(reply.image!);
+                                                      }}
+                                                    />
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -2306,45 +2561,129 @@ export default function App() {
                               </div>
                             )}
 
-                            <div className="flex gap-2 items-center">
-                              {/* Attach image trigger */}
-                              <label className="p-2 bg-gray-100 hover:bg-gray-155 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-450 rounded-xl cursor-pointer transition-all shrink-0">
-                                <ImageIcon className="h-4.5 w-4.5 text-emerald-500" />
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  className="hidden" 
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      const url = URL.createObjectURL(file);
-                                      setNewCommentImage(prev => ({ ...prev, [post.id]: url }));
-                                    }
+                            {/* Comment Tag Friend Selector */}
+                            {showCommentTagBoxForPost === post.id && friends && friends.length > 0 && (
+                              <div className="p-2 bg-blue-50/50 dark:bg-neutral-900/60 rounded-xl border border-blue-200 dark:border-neutral-800/80 flex flex-wrap gap-1.5 animate-slide-in">
+                                <span className="text-[9px] font-extrabold text-blue-700 dark:text-blue-400 uppercase block w-full text-left">Tandai rekan di komentar:</span>
+                                {friends.map(friend => {
+                                  const tagHandle = '@' + friend.displayName.replace(/[^a-zA-Z0-9]/g, '');
+                                  return (
+                                    <button
+                                      key={friend.id}
+                                      onClick={() => {
+                                        setNewCommentText(prev => {
+                                          const text = prev[post.id] || '';
+                                          const spacing = text.length > 0 && !text.endsWith(' ') ? ' ' : '';
+                                          return { ...prev, [post.id]: text + spacing + tagHandle + ' ' };
+                                        });
+                                        setShowCommentTagBoxForPost(null);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-[9px] font-bold text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                                    >
+                                      <img src={friend.avatar} className="w-3.5 h-3.5 rounded-full object-cover shrink-0" />
+                                      <span>{friend.displayName}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap">
+                              <div className="flex gap-1.5 items-center shrink-0">
+                                {/* Attach image trigger */}
+                                <label className="p-2 bg-gray-100 hover:bg-gray-155 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-455 rounded-xl cursor-pointer transition-all shrink-0">
+                                  <ImageIcon className="h-4 w-4 text-emerald-500 sm:h-4.5 sm:w-4.5" />
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const url = URL.createObjectURL(file);
+                                        setNewCommentImage(prev => ({ ...prev, [post.id]: url }));
+                                      }
+                                    }}
+                                  />
+                                </label>
+
+                                {/* Emoji toggle */}
+                                <button
+                                  onClick={() => setActiveCommentEmojiBoxId(activeCommentEmojiBoxId === post.id ? null : post.id)}
+                                  className="p-2 bg-gray-100 hover:bg-gray-155 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-455 rounded-xl cursor-pointer transition-all shrink-0"
+                                >
+                                  <Smile className="h-4 w-4 text-amber-500 sm:h-4.5 sm:w-4.5" />
+                                </button>
+
+                                {/* Friend tag picker toggle */}
+                                {friends && friends.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowCommentTagBoxForPost(showCommentTagBoxForPost === post.id ? null : post.id)}
+                                    className={`p-2 rounded-xl cursor-pointer transition-all shrink-0 ${
+                                      showCommentTagBoxForPost === post.id ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' : 'bg-gray-100 dark:bg-neutral-850 hover:bg-gray-155 text-blue-500'
+                                    }`}
+                                    title="Tandai Rekan"
+                                  >
+                                    🏷️
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="relative flex-1 min-w-[120px]">
+                                <input
+                                  type="text"
+                                  placeholder="Tulis opini terbaik Anda... ketik @ untuk tag"
+                                  value={newCommentText[post.id] || ''}
+                                  onChange={(e) => setNewCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') handleCommentPost(post.id);
                                   }}
+                                  className="w-full bg-white rounded-xl px-4 py-2 border border-gray-200 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-950 focus:outline-hidden placeholder-gray-500 font-medium"
                                 />
-                              </label>
-
-                              {/* Emoji toggle */}
-                              <button
-                                onClick={() => setActiveCommentEmojiBoxId(activeCommentEmojiBoxId === post.id ? null : post.id)}
-                                className="p-2 bg-gray-100 hover:bg-gray-155 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-455 rounded-xl cursor-pointer transition-all shrink-0"
-                              >
-                                <Smile className="h-4.5 w-4.5 text-amber-500" />
-                              </button>
-
-                               <input
-                                 type="text"
-                                 placeholder="Tulis opini terbaik Anda..."
-                                 value={newCommentText[post.id] || ''}
-                                 onChange={(e) => setNewCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
-                                 onKeyPress={(e) => {
-                                   if (e.key === 'Enter') handleCommentPost(post.id);
-                                 }}
-                                 className="flex-1 bg-white rounded-xl px-4 py-2 border border-gray-200 text-xs focus:ring-1 focus:ring-emerald-500 text-gray-950 focus:outline-hidden placeholder-gray-500 font-medium"
-                               />
+                                {/* Main comment dropdown suggestions popup */}
+                                {(() => {
+                                  const currentText = newCommentText[post.id] || '';
+                                  const match = currentText.match(/@([a-zA-Z0-9_]*)$/);
+                                  if (match && friends && friends.length > 0) {
+                                    const query = match[1].toLowerCase();
+                                    const matchedFriends = friends.filter(friend => 
+                                      friend.displayName.toLowerCase().includes(query) ||
+                                      (friend.username && friend.username.toLowerCase().includes(query))
+                                    );
+                                    if (matchedFriends.length > 0) {
+                                      return (
+                                        <div className="absolute left-0 bottom-full mb-1 w-52 bg-white/95 dark:bg-neutral-900 border border-blue-200 dark:border-neutral-800 shadow-xl rounded-xl p-1.5 z-20 max-h-32 overflow-y-auto space-y-0.5 text-left">
+                                          <p className="text-[8px] font-extrabold text-blue-600 uppercase pb-1 border-b border-gray-100">💡 Klik rekan untuk menandai:</p>
+                                          {matchedFriends.map((friend) => {
+                                            const tagHandle = '@' + friend.displayName.replace(/[^a-zA-Z0-9]/g, '');
+                                            return (
+                                              <button
+                                                key={friend.id}
+                                                type="button"
+                                                onClick={() => {
+                                                  setNewCommentText(prev => {
+                                                    const text = prev[post.id] || '';
+                                                    return { ...prev, [post.id]: text.replace(/@([a-zA-Z0-9_]*)$/, tagHandle + ' ') };
+                                                  });
+                                                }}
+                                                className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-blue-50 dark:hover:bg-neutral-800 rounded-lg text-left"
+                                              >
+                                                <img src={friend.avatar} className="w-4 h-4 rounded-full object-cover shrink-0" />
+                                                <span className="text-[10px] font-bold text-gray-800 dark:text-gray-100 truncate">{friend.displayName}</span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    }
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                               <button
                                 onClick={() => handleCommentPost(post.id)}
-                                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shrink-0"
                               >
                                 Kirim
                               </button>
@@ -2378,7 +2717,7 @@ export default function App() {
                       Ingin Menjual Barang Milikmu?
                     </h3>
                     <p className="text-xs text-slate-450">
-                      Pasang iklan gratis produk lokasimu dengan deskripsi lengkap sekarang di Idebagus.
+                      Pasang iklan gratis produk lokasimu dengan deskripsi lengkap sekarang di IdKanca.
                     </p>
                   </div>
                   <button
@@ -2795,7 +3134,7 @@ export default function App() {
                   </span>
                   <h2 className="text-xl font-black text-[#f1f5f9]">⚙️ Panel Kontrol Admin Khusus</h2>
                   <p className="text-xs text-slate-400">
-                    Gunakan panel ini untuk mengontrol konten halaman utama, mode pemeliharaan, jumlah visual user, dan marquee pengumuman di website Idebagus.
+                    Gunakan panel ini untuk mengontrol konten halaman utama, mode pemeliharaan, jumlah visual user, dan marquee pengumuman di website IdKanca.
                   </p>
                 </div>
 
@@ -3140,7 +3479,7 @@ export default function App() {
                     avatar: friend.avatar,
                     banner: 'https://images.unsplash.com/photo-1618011500743-7f9a42d9410a?w=1200',
                     bannerPosition: 50,
-                    bio: `Halo, saya ${friend.displayName}. Senang berteman dengan Anda di Portal Hubungan idebagus Indonesia! Mari berkolaborasi mengembangkan produk daerah unggulan dan berdiskusi aman secara terdistribusi di sini.`,
+                    bio: `Halo, saya ${friend.displayName}. Senang berteman dengan Anda di Portal Hubungan idkanca Indonesia! Mari berkolaborasi mengembangkan produk daerah unggulan dan berdiskusi aman secara terdistribusi di sini.`,
                     location: 'Indonesia',
                     joinedDate: 'Mei 2024',
                     followersCount: 142
@@ -3155,7 +3494,7 @@ export default function App() {
                     avatar: reqItem.senderAvatar,
                     banner: 'https://images.unsplash.com/photo-1618011500743-7f9a42d9410a?w=1200',
                     bannerPosition: 50,
-                    bio: `Halo, saya ${reqItem.senderName}. Senang berteman dengan Anda di Portal Hubungan idebagus Indonesia! Mari berkolaborasi mengembangkan produk daerah unggulan dan berdiskusi aman secara terdistribusi di sini.`,
+                    bio: `Halo, saya ${reqItem.senderName}. Senang berteman dengan Anda di Portal Hubungan idkanca Indonesia! Mari berkolaborasi mengembangkan produk daerah unggulan dan berdiskusi aman secara terdistribusi di sini.`,
                     location: 'Indonesia',
                     joinedDate: 'Mei 2024',
                     followersCount: 88
@@ -3174,6 +3513,8 @@ export default function App() {
                     setActiveTab('chat');
                   }}
                   onBackToMyProfile={() => setViewingProfileUserId(null)}
+                  language={language}
+                  onLanguageChange={setLanguage}
                 />
               );
             })()}
@@ -3194,6 +3535,7 @@ export default function App() {
           theme={theme}
           toggleTheme={toggleTheme}
           onLogout={handleLogoutFlow}
+          language={language}
         />
       </div>
 
@@ -3210,6 +3552,7 @@ export default function App() {
       {/* --- MODAL DIALOG: POST CREATOR FORM --- */}
       <CreatePostModal
         currentUser={currentUser}
+        friends={friends}
         isOpen={createPostModalOpen}
         onClose={() => setCreatePostModalOpen(false)}
         onSubmitPost={handleCreatePost}

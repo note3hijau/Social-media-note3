@@ -1,6 +1,7 @@
 import { LogOut, Settings, Award, Layers, ShieldCheck, HelpCircle, HardDrive, Smartphone, Sparkles, MessageSquare, ShoppingBag, X, Moon, Sun, MonitorDot } from 'lucide-react';
 import { User } from '../types';
 import { useState } from 'react';
+import { translate } from '../utils/translations';
 
 interface SidebarProps {
   currentUser: User;
@@ -11,6 +12,7 @@ interface SidebarProps {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   onLogout: () => void;
+  language?: string;
 }
 
 export default function Sidebar({
@@ -22,6 +24,7 @@ export default function Sidebar({
   theme,
   toggleTheme,
   onLogout,
+  language = 'id',
 }: SidebarProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -34,9 +37,9 @@ export default function Sidebar({
   };
 
   const navItems = [
-    { id: 'feed', name: 'Feed Utama', icon: Sparkles },
-    { id: 'marketplace', name: 'Pasar Lokal', icon: ShoppingBag },
-    { id: 'chat', name: 'Obrolan Chat', icon: MessageSquare },
+    { id: 'feed', name: translate('feed', language), icon: Sparkles },
+    { id: 'marketplace', name: translate('marketplace', language), icon: ShoppingBag },
+    { id: 'chat', name: translate('chat', language), icon: MessageSquare },
   ];
 
   return (
@@ -234,7 +237,7 @@ export default function Sidebar({
                   Konfirmasi Keluar?
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-neutral-400 mb-6">
-                  Apakah Anda yakin ingin keluar dari <span className="font-semibold text-blue-500">idebagus.com</span>? Sesi Anda akan disimpan di sistem lokal secara aman.
+                  Apakah Anda yakin ingin keluar dari <span className="font-semibold text-emerald-500">idkanca.com</span>? Sesi Anda akan disimpan di sistem lokal secara aman.
                 </p>
                 <div className="flex gap-3 justify-end">
                   <button

@@ -50,7 +50,7 @@ export const INITIAL_POSTS: Post[] = [
     userId: 'user_1',
     userName: 'Siti Rahma',
     userAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    content: 'Ada rekomendasi kopi lokal di daerah Yogyakarta yang suasananya tenang buat laptopan seharian? ☕️💻 Share dong teman-teman idebagus!',
+    content: 'Ada rekomendasi kopi lokal di daerah Yogyakarta yang suasananya tenang buat laptopan seharian? ☕️💻 Share dong teman-teman idkanca!',
     createdAt: '15 menit lalu',
     likes: ['user_2', 'user_me'],
     comments: [

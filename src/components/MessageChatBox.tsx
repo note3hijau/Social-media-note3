@@ -47,7 +47,6 @@ export default function MessageChatBox({
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [confirmDeleteThread, setConfirmDeleteThread] = useState(false);
 
   // Hold-to-manage contacts states (for "Tahan Obrolan" functionality)
   const [contextMenuFriendId, setContextMenuFriendId] = useState<string | null>(null);
@@ -158,7 +157,7 @@ export default function MessageChatBox({
       'Siap mas! Makasih respon cepatnya ya, ditunggu infonya. 👍',
       'Waduh mantap djiwa gan! Nanti malem ane kabarin kelanjutannya ya.',
       'Boleh banget mba Sish, ketemuan di daerah Kemang atau Tebet enaknya?',
-      'Sepertinya menarik lho. Langsung ane transfer aman lewat QRIS idebagus sekarang.',
+      'Sepertinya menarik lho. Langsung ane transfer aman lewat QRIS idkanca sekarang.',
       'Oke siaap, jangan lupa bantu up dagangan ane di feed ya mas Bagus!',
       'Siap meluncur bos! Hehe.'
     ];
@@ -194,9 +193,11 @@ export default function MessageChatBox({
 
   const handleExecuteDelete = () => {
     if (selectedMessageIds.length === 0) return;
-    onDeleteMessages(selectedMessageIds);
-    setSelectedMessageIds([]);
-    setIsDeleteMode(false);
+    if (window.confirm('Apakah Anda yakin ingin menghapus pesan-pesan terpilih?')) {
+      onDeleteMessages(selectedMessageIds);
+      setSelectedMessageIds([]);
+      setIsDeleteMode(false);
+    }
   };
 
   const handleStartCall = (callType: 'audio' | 'video') => {
@@ -434,16 +435,22 @@ export default function MessageChatBox({
             {/* Calling Options & Mass-delete triggers */}
             <div className="flex items-center gap-1.5">
               <button 
-                onClick={() => setConfirmDeleteThread(!confirmDeleteThread)}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 px-2.5 py-1.5 text-[10.5px] font-bold ${
-                  confirmDeleteThread 
-                    ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-450' 
-                    : 'bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-450'
-                }`}
+                onClick={() => {
+                  if (window.confirm(`Apakah Anda yakin ingin menghapus seluruh obrolan dan kontak ${selectedFriend.displayName} secara permanen?`)) {
+                    if (onDeleteFriend) {
+                      onDeleteFriend(selectedFriend.id);
+                    } else {
+                      const allIds = activeThreadMessages.map(m => m.id);
+                      onDeleteMessages(allIds);
+                    }
+                    setActiveChatFriendId(null);
+                  }
+                }}
+                className="bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-450 p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 px-2.5 py-1.5 text-[10.5px] font-bold"
                 title="Hapus Seluruh Obrolan"
               >
                 <Trash2 className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Hapus Obrolan</span>
+                <span>Hapus Obrolan</span>
               </button>
 
               <button 
@@ -475,34 +482,6 @@ export default function MessageChatBox({
               </button>
             </div>
           </div>
-
-          {/* Entire thread clear confirmation bar */}
-          {confirmDeleteThread && (
-            <div className="bg-rose-50 dark:bg-rose-950/30 px-4 py-3 border-b border-rose-150 dark:border-rose-900/40 flex items-center justify-between text-xs animate-slide-in text-left">
-              <div className="text-left font-sans">
-                <p className="font-extrabold text-rose-700 dark:text-rose-450 text-[11px]">Hapus Seluruh Obrolan?</p>
-                <p className="text-[10px] text-gray-500 dark:text-neutral-400 mt-0.5">Semua riwayat pengiriman pesan dengan {selectedFriend.displayName} akan terhapus permanen.</p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button 
-                  onClick={() => setConfirmDeleteThread(false)}
-                  className="px-2.5 py-1.5 text-[10.5px] bg-white border border-gray-205 dark:bg-neutral-800 dark:border-neutral-700 text-gray-750 dark:text-gray-300 font-bold rounded-lg cursor-pointer transition-colors"
-                >
-                  Batal
-                </button>
-                <button 
-                  onClick={() => {
-                    const allIds = activeThreadMessages.map(m => m.id);
-                    onDeleteMessages(allIds);
-                    setConfirmDeleteThread(false);
-                  }}
-                  className="px-2.5 py-1.5 text-[10.5px] bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-lg cursor-pointer transition-colors"
-                >
-                  Ya, Hapus Semua
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Mass action delete tray */}
           {isDeleteMode && (
@@ -1036,15 +1015,17 @@ export default function MessageChatBox({
 
                   <button
                     onClick={() => {
-                      if (onDeleteFriend) {
-                        onDeleteFriend(contextMenuFriendId);
+                      if (window.confirm('Apakah Anda yakin ingin menghapus kontak beserta seluruh riwayat obrolan ini secara permanen?')) {
+                        if (onDeleteFriend) {
+                          onDeleteFriend(contextMenuFriendId);
+                        }
+                        setContextMenuFriendId(null);
                       }
-                      setContextMenuFriendId(null);
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/25 text-left flex items-center gap-2.5 transition-colors cursor-pointer"
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/25 text-left flex items-center gap-2.5 transition-colors cursor-pointer animate-pulse"
                   >
-                    <Trash2 className="h-4 w-4 text-rose-500" />
-                    Hapus Percakapan & Kontak 🛑
+                    <Trash2 className="h-4 w-4 text-rose-500 animate-bounce" />
+                    Hapus Kontak & Seluruh Obrolan 🗑️
                   </button>
 
                   <button

@@ -49,6 +49,15 @@ export default function Header({
   const [showRequestsDropdown, setShowRequestsDropdown] = useState(false);
   const [showMessagesDropdown, setShowMessagesDropdown] = useState(false);
   const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
+  
+  // Native notification permission state
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
 
   const requestsDropdownRef = useRef<HTMLDivElement>(null);
   const messagesDropdownRef = useRef<HTMLDivElement>(null);
@@ -117,17 +126,17 @@ export default function Header({
             {customLogoUrl ? (
               <img 
                 src={customLogoUrl} 
-                alt="IdeBagus Logo" 
+                alt="IdKanca Logo" 
                 className="h-10 w-10 rounded-xl object-cover shadow-lg border border-white/10 group-hover:scale-105 transition-all duration-200" 
               />
             ) : (
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 text-white font-black text-xl shadow-md cursor-pointer group-hover:scale-105 transition-all duration-200">
-                iB
+                iK
               </div>
             )}
             <div className="hidden sm:block text-left">
               <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-[#10b981] via-[#06b6d4] to-[#3b82f6] bg-clip-text text-transparent transition-all duration-300 group-hover:brightness-110">
-                idebagus
+                idkanca
               </span>
               <span className="text-[10px] font-black tracking-widest text-[#f59e0b] uppercase block -mt-1.5 font-mono drop-shadow-sm">
                 .com ✨
@@ -453,7 +462,7 @@ export default function Header({
             {/* Notifications List */}
             {showNotificationsDropdown && (
               <div className="absolute right-[-4.5rem] sm:right-0 mt-2 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2 shadow-xl ring-1 ring-black/5 z-50">
-                <div className="px-3 py-2 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center mb-1">
+                <div className="px-3 py-2 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center">
                   <h3 className="font-semibold text-sm text-gray-900 dark:text-white">
                     Notifikasi Terbaru
                   </h3>
@@ -466,6 +475,43 @@ export default function Header({
                     </button>
                   )}
                 </div>
+                
+                {/* Permintaan izin notifikasi sistem / device */}
+                <div className="px-3 py-2 bg-slate-50 dark:bg-neutral-950 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center text-[10px] rounded-lg my-1">
+                  <span className="text-gray-500 font-bold">🔔 Notifikasi Device (HP/PC)</span>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if ('Notification' in window) {
+                        const perm = await Notification.requestPermission();
+                        setNotifPermission(perm);
+                        if (perm === 'granted') {
+                          // Try sending an immediate test notification
+                          try {
+                            new Notification('idkanca.com', {
+                              body: 'Notifikasi sistem berhasil diaktifkan di perangkat Anda!',
+                              icon: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=80&auto=format&fit=crop&q=60'
+                            });
+                          } catch (err) {
+                            console.warn(err);
+                          }
+                        }
+                      } else {
+                        alert('Perangkat Anda tidak mendukung notifikasi browser.');
+                      }
+                    }}
+                    className={`px-2 py-1 rounded-sm text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      notifPermission === 'granted'
+                        ? 'text-emerald-500 bg-emerald-500/10'
+                        : notifPermission === 'denied'
+                        ? 'text-rose-500 bg-rose-500/10'
+                        : 'text-blue-500 bg-blue-500/15 hover:bg-blue-500/25 animate-pulse'
+                    }`}
+                  >
+                    {notifPermission === 'granted' ? 'AKTIF' : notifPermission === 'denied' ? 'DIBLOKIR' : 'AKTIFKAN'}
+                  </button>
+                </div>
+
                 <div className="max-h-80 overflow-y-auto space-y-1 py-1 scrollbar-thin">
                   {notifications.length === 0 ? (
                     <div className="py-8 text-center text-xs text-neutral-500 dark:text-neutral-400">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { Camera, RefreshCw, CheckCircle2, Sliders, MapPin, Calendar, Heart, Share2, Globe, HardDrive, Upload, Image, MessageSquare, ArrowLeft } from 'lucide-react';
+import { translate, LANGUAGES } from '../utils/translations';
 
 interface ProfileEditTabProps {
   currentUser: User;
@@ -8,6 +9,8 @@ interface ProfileEditTabProps {
   viewedUser?: User;
   onStartChat?: (userId: string) => void;
   onBackToMyProfile?: () => void;
+  language?: string;
+  onLanguageChange?: (lang: string) => void;
 }
 
 export default function ProfileEditTab({ 
@@ -15,12 +18,15 @@ export default function ProfileEditTab({
   onUpdateUser, 
   viewedUser, 
   onStartChat, 
-  onBackToMyProfile 
+  onBackToMyProfile,
+  language = 'id',
+  onLanguageChange
 }: ProfileEditTabProps) {
   const isOwnProfile = !viewedUser || viewedUser.id === currentUser.id;
   const activeUser = isOwnProfile ? currentUser : viewedUser!;
 
   const [displayName, setDisplayName] = useState(activeUser.displayName);
+  const [username, setUsername] = useState(activeUser.username || '');
   const [bio, setBio] = useState(activeUser.bio);
   const [location, setLocation] = useState(activeUser.location);
   const [avatar, setAvatar] = useState(activeUser.avatar);
@@ -38,6 +44,7 @@ export default function ProfileEditTab({
   // Sync state values on active user change
   useEffect(() => {
     setDisplayName(activeUser.displayName);
+    setUsername(activeUser.username || '');
     setBio(activeUser.bio);
     setLocation(activeUser.location);
     setAvatar(activeUser.avatar);
@@ -137,9 +144,15 @@ export default function ProfileEditTab({
   };
 
   const handleSave = () => {
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!cleanUsername) {
+      alert('Username wajib diisi dan hanya boleh berupa huruf, angka, atau garis bawah (_)!');
+      return;
+    }
     const updated: User = {
       ...currentUser,
       displayName,
+      username: cleanUsername,
       bio,
       location,
       avatar,
@@ -277,7 +290,7 @@ export default function ProfileEditTab({
       {isOwnProfile ? (
         <div className="bg-white dark:bg-neutral-900 p-6 rounded-3xl border border-gray-150 dark:border-neutral-800 shadow-2xs space-y-4">
           <h2 className="text-sm font-extrabold text-gray-950 dark:text-white uppercase tracking-wider border-b border-gray-100 dark:border-neutral-800 pb-3">
-            Informasi Profil Dasar
+            {translate('editProfileTitle', language)}
           </h2>
 
           <div className="space-y-4">
@@ -285,21 +298,76 @@ export default function ProfileEditTab({
             {/* Display name */}
             <div>
               <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
-                Nama Lengkap
+                {translate('fullName', language)}
               </label>
               <input 
                 type="text" 
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all"
+                className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all font-bold"
                 placeholder="Nama Lengkap Kamu"
               />
+            </div>
+
+            {/* Unique Username Creator (Required) */}
+            <div>
+              <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
+                🆔 Username Unik (Wajib untuk Profil Publik)
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-2.5 text-xs text-gray-400 font-bold select-none">
+                  idkanca.id/u/
+                </span>
+                <input 
+                  type="text" 
+                  value={username}
+                  onChange={(e) => {
+                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                    setUsername(val);
+                  }}
+                  maxLength={30}
+                  className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 pl-26 pr-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all font-mono font-bold"
+                  placeholder="username_anda"
+                />
+              </div>
+              <span className="text-[10px] text-gray-400 mt-1 block leading-relaxed">
+                * Username ini digunakan oleh masyarakat umum untuk mengakses profil toko bisnis UMKM Anda langsung dari internet. Hanya boleh mengandung huruf kecil, angka, dan garis bawah.
+              </span>
+            </div>
+
+            {/* Public Profile URL sharing block */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-500/20 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">⭐ LINK WEBSITE PUBLIK ANDA</span>
+                  <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200 mt-1">
+                    https://idkanca.id/u/{username || 'username_anda'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!username) {
+                      alert('Isi username terlebih dahulu!');
+                      return;
+                    }
+                    navigator.clipboard.writeText(`https://ais-pre-zcauwn4p6s44n2fvu5ngww-185981148918.europe-west2.run.app/u/${username}`);
+                    alert('✓ Link profil publik berhasil disalin ke clipboard!');
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-xl shadow-xs cursor-pointer transition-all shrink-0"
+                >
+                  Salin Link
+                </button>
+              </div>
+              <p className="text-[9.5px] text-gray-600 dark:text-neutral-400 leading-relaxed">
+                Gunakan tautan profesional ini di brosur toko, kartu nama, atau deskripsi WhatsApp Anda agar calon pembeli dan investor lokal bisa langsung berinteraksi dengan produk UMKM Anda secara transparan.
+              </p>
             </div>
 
             {/* Location (Indonesia focused region selector) */}
             <div>
               <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block mb-1">
-                Lokasi Domisili (Indonesia Region Focus)
+                {translate('location', language)}
               </label>
               <select
                 value={location}
@@ -377,6 +445,29 @@ export default function ProfileEditTab({
               </span>
             </div>
 
+            {/* Language Settings block */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-neutral-800 space-y-3">
+              <label className="text-[11px] font-bold text-gray-700 dark:text-neutral-400 uppercase tracking-wider block">
+                🌐 {translate('settingsLanguage', language)}
+              </label>
+              <div className="space-y-1">
+                <span className="text-[10px] text-gray-550 dark:text-gray-400 block mb-1">
+                  {translate('selectLanguage', language)}
+                </span>
+                <select
+                  value={language}
+                  onChange={(e) => onLanguageChange && onLanguageChange(e.target.value)}
+                  className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all scrollbar-thin font-bold"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Save Buttons */}
             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-neutral-800">
               <button
@@ -390,7 +481,7 @@ export default function ProfileEditTab({
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                Simpan & Sinkronisasikan Sekarang
+                {translate('saveProfile', language)}
               </button>
             </div>
 
@@ -403,7 +494,7 @@ export default function ProfileEditTab({
               <h2 className="text-sm font-extrabold text-gray-950 dark:text-white uppercase tracking-wider">
                 Kartu Bisnis Terverifikasi
               </h2>
-              <p className="text-[10px] text-gray-400 mt-0.5">Pengguna portal idebagus Regional Indonesia</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Pengguna portal idkanca Regional Indonesia</p>
             </div>
             {onStartChat && (
               <button
