@@ -316,7 +316,7 @@ export default function ProfileEditTab({
               </label>
               <div className="relative">
                 <span className="absolute left-4 top-2.5 text-xs text-gray-400 font-bold select-none">
-                  idkanca.id/u/
+                  idkanca.com/u/
                 </span>
                 <input 
                   type="text" 
@@ -326,7 +326,7 @@ export default function ProfileEditTab({
                     setUsername(val);
                   }}
                   maxLength={30}
-                  className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 pl-26 pr-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all font-mono font-bold"
+                  className="w-full rounded-xl border border-gray-205 dark:border-neutral-800 bg-white dark:bg-neutral-900 pl-28 pr-4 py-2.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden transition-all font-mono font-bold"
                   placeholder="username_anda"
                 />
               </div>
@@ -341,7 +341,7 @@ export default function ProfileEditTab({
                 <div>
                   <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">⭐ LINK WEBSITE PUBLIK ANDA</span>
                   <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200 mt-1">
-                    https://idkanca.id/u/{username || 'username_anda'}
+                    https://idkanca.com/u/{username || 'username_anda'}
                   </p>
                 </div>
                 <button

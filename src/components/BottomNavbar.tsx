@@ -69,34 +69,6 @@ export default function BottomNavbar({
           </span>
         </button>
 
-        {/* Chat Messages */}
-        <button
-          onClick={() => setActiveTab('chat')}
-          className="flex flex-col items-center justify-center flex-1 py-1 cursor-pointer transition-transform duration-100 active:scale-90 relative"
-        >
-          <MessageSquare
-            className={`h-5 w-5 transition-colors ${
-              activeTab === 'chat'
-                ? 'text-blue-600 dark:text-blue-400 font-bold scale-110'
-                : 'text-gray-400 dark:text-slate-400'
-            }`}
-          />
-          {unreadMessagesCount > 0 && (
-            <span className="absolute top-0 right-4 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">
-              {unreadMessagesCount}
-            </span>
-          )}
-          <span
-            className={`text-[9px] mt-0.5 font-medium transition-colors ${
-              activeTab === 'chat'
-                ? 'text-blue-600 dark:text-blue-400 font-bold'
-                : 'text-gray-400 dark:text-slate-400'
-            }`}
-          >
-            Obrolan
-          </span>
-        </button>
-
         {/* Profile */}
         <button
           onClick={() => setActiveTab('profile')}

@@ -149,25 +149,6 @@ export default function MessageChatBox({
     setAttachedImage(null);
     setReplyingToMessage(null);
     setShowEmojiPicker(false);
-
-    // Trigger typing responder simulation
-    setIsTyping(true);
-
-    const indonesianReplies = [
-      'Siap mas! Makasih respon cepatnya ya, ditunggu infonya. 👍',
-      'Waduh mantap djiwa gan! Nanti malem ane kabarin kelanjutannya ya.',
-      'Boleh banget mba Sish, ketemuan di daerah Kemang atau Tebet enaknya?',
-      'Sepertinya menarik lho. Langsung ane transfer aman lewat QRIS idkanca sekarang.',
-      'Oke siaap, jangan lupa bantu up dagangan ane di feed ya mas Bagus!',
-      'Siap meluncur bos! Hehe.'
-    ];
-
-    const randomReply = indonesianReplies[Math.floor(Math.random() * indonesianReplies.length)];
-
-    setTimeout(() => {
-      setIsTyping(false);
-      onSimulateReply(activeChatFriendId, randomReply);
-    }, 2000);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

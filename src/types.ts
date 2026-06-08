@@ -11,6 +11,8 @@ export interface User {
   followersCount: number;
   email?: string;
   role?: string;
+  password?: string;
+  isLocked?: boolean;
 }
 
 export interface Comment {

@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Indonesian local business/social media network user profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Equal to the Auth user identifier" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatar": { "type": "string" },
+        "banner": { "type": "string" },
+        "bannerPosition": { "type": "integer" },
+        "bio": { "type": "string" },
+        "location": { "type": "string" },
+        "joinedDate": { "type": "string" },
+        "followersCount": { "type": "integer" },
+        "email": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["id", "username", "displayName", "email"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Feed publication created by a business or person",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "image": { "type": "string" },
+        "images": { "type": "array" },
+        "likes": { "type": "array" },
+        "comments": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["id", "userId", "userName", "content", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Private instaneous text or marketplace proxy chat dispatch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "content": { "type": "string" },
+        "image": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "senderId", "receiverId", "content", "createdAt"]
+    },
+    "Friend": {
+      "title": "Friend",
+      "description": "A close business association or client follower relation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatar": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "lastActive": { "type": "string" }
+      },
+      "required": ["id", "displayName", "avatar"]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "Request to establish a secure link with another local merchant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "receiverId", "status", "createdAt"]
+    },
+    "MarketplaceItem": {
+      "title": "MarketplaceItem",
+      "description": "Indonesian local merchant catalog offering",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "sellerAvatar": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "integer" },
+        "image": { "type": "string" },
+        "images": { "type": "array" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "condition": { "type": "string", "enum": ["Baru", "Bekas"] },
+        "isSold": { "type": "boolean" }
+      },
+      "required": ["id", "sellerId", "sellerName", "title", "price", "isSold"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "Activity dispatch informing user of likes, requests or chats",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["friend_request", "message", "like", "comment", "marketplace", "system"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "targetId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "type", "title", "content", "isRead", "createdAt"]
+    },
+    "EscrowTransaction": {
+      "title": "EscrowTransaction",
+      "description": "Rekber local trade transaction securing payment escrow and shipping",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemTitle": { "type": "string" },
+        "itemPrice": { "type": "integer" },
+        "itemImage": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["qris", "gopay", "ovo", "va_bca"] },
+        "paymentStatus": { "type": "string", "enum": ["pending_payment", "escrow_secured", "shipped_transit", "delivered", "cancelled"] },
+        "expedition": { "type": "string" },
+        "receiptNumber": { "type": "string" },
+        "currentTrackingStepIndex": { "type": "integer" },
+        "trackingLogs": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "itemId", "buyerId", "paymentStatus", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User account settings and parameters"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Social micro-blog posts"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Instant direct messaging texts"
+    },
+    "/friend_requests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Social link request queue"
+    },
+    "/marketplace_items/{itemId}": {
+      "schema": "MarketplaceItem",
+      "description": "E-commerce product classifieds catalog"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "AppNotification",
+      "description": "Personal alerts trigger feed"
+    },
+    "/escrow_transactions/{transactionId}": {
+      "schema": "EscrowTransaction",
+      "description": "Trade escrow tracking ledger"
+    },
+    "/users/{userId}/friends/{friendId}": {
+      "schema": "Friend",
+      "description": "User direct connection relations"
+    }
+  }
+}
